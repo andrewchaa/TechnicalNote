@@ -35,3 +35,8 @@ http://momentjs.com/
 ```
 npm install moment -save
 ```
+
+#### formatting date from mongodb
+```
+<span class="col-md-6"><%= moment(new Date(measure.ofDate)).format('ddd. DD/MM/YYYY') %></span>
+```
