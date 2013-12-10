@@ -81,6 +81,45 @@ User.prototype.update = function(fn) {
 }
 ```
 
+##### Securing a user password
+
+```javascript
+User.prototype.hashPassword = function(fn) {
+	var user = this;
+	bcrypt.genSalt(12, function(err, salt) {
+		if (err) return fn(err);
+		user.salt = salt;
+		bcrypt.hash(user.pass, salt, function(err, hash) {
+			if (err) return fn(err);
+			user.pass = hash;
+			fn();
+		});
+	});
+}
+```
+
+##### Testing the user-saving logic
+
+```javascript
+var tobi = new User({
+	name: 'Tobi',
+	pass: 'im a ferret',
+	age: '2'
+});
+
+toby.save(function(err) {
+	if (err) throw fn(err);
+	console.log('user id d%', tobi.id);
+});
+```
+
+```bash
+$ redis-cli
+redis> get user:ids
+redis> hgetall user:1
+redis> quit
+```
+
 ### Advanced Routing Techniques
 ### Creating a Public API
 ### Error Handling
