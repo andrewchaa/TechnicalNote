@@ -273,10 +273,160 @@ model, which is really at the heart of an applicaton, that adds value to a busin
 and its structure follow.
 
 ### Elements of a model
+
+#### Entity
+
+An entty is an object that is uniquely identfable by a combinaton of its atributes and has 
+a well-defned lifespan.
+
+#### Value object
+
+In a model, objects may exist with a life span of no interest and which do not need to be uniquely identfed by an ID or a key. These kinds of objects are called value objects.
+
+Examples
+
+* Name of, for example, a person entty. The Name value object consists of the surname, given name, and middle name of a person object.
+* Geographical coordinate in a GIS applicaton. Such value objects consist of a value pair for lattude and longitude.
+* Color in a colorimetry applicaton. A color object consists of values for red, green, blue, and alpha channels.
+* Address in a customer relatonship management (CRM) applicaton as part of a customer entty. An address object might contain values for address line 1 and 2, zip code, and city
+
 ### Creating a Name value object
-### Creating an entity
+
+```csharp
+
+public class Name
+{
+  public string LastName { get; private set; }
+  public string FirstName { get; private set; }
+  public string MiddleName { get; private set; }
+
+  public Name(string firstName, string middleName, string lastName)
+  {
+    if(string.IsNullOrWhiteSpace(firstName)) throw new ArgumentException("First name must be defined.");
+    if(string.IsNullOrWhiteSpace(lastName)) throw new ArgumentException("Last name must be defined.");
+    FirstName = firstName;
+    MiddleName = middleName;
+    LastName = lastName;
+  }
+
+  public override int GetHashCode()
+  {
+    unchecked
+    {
+      var result = FirstName.GetHashCode();
+      result = (result*397) ^ (MiddleName != null ? MiddleName.GetHashCode() : 0);
+      result = (result*397) ^ LastName.GetHashCode();
+      return result;
+    }
+  }
+
+  public bool Equals(Name other)
+  {
+    if (other == null) return false;
+    if (ReferenceEquals(this, other)) return true;
+    return Equals(other.FirstName, FirstName) &&  
+      Equals(other.MiddleName, MiddleName) &&  
+      Equals(other.LastName, LastName);
+  }
+
+  public override bool Equals(object other)
+  {
+    return Equals(other as Name);
+  }
+
+}
+
+
+```
+
 ### Creating a base entity
+
+1. Add a new class and new auto properties to it
+2. Override the Equals and provide the implementation of GetHashCode()
+3. Override == and !=
+
+```csharp
+
+public abstract class Entity<T> where T : Entity<T>
+{
+  public Guid ID { get; private set; }
+
+  public override bool Equals(object obj)
+  {
+    var other = obj as T;
+    if (other == null) return false;
+    var thisIsNew = Equals(ID, Guid.Empty);
+    var otherIsNew = Equals(other.ID, Guid.Empty);
+    if (thisIsNew && otherIsNew)
+      return ReferenceEquals(this, other);
+    return ID.Equals(other.ID);
+  }
+
+  private int? oldHashCode;
+  public override int GetHashCode()
+  {
+    // once we have a hashcode we'll never change it
+    if (oldHashCode.HasValue)
+      return oldHashCode.Value;
+    // when this instance is new we use the base hash code
+    // and remember it, so an instance can NEVER change its
+    // hash code.
+    var thisIsNew = Equals(ID, Guid.Empty);
+    if(thisIsNew)
+    {
+      oldHashCode = base.GetHashCode();
+      return oldHashCode.Value;
+    }
+    return ID.GetHashCode();
+  } 
+
+  public static bool operator ==(Entity<T> lhs, Entity<T> rhs)
+  {
+    return Equals(lhs, rhs);
+  }
+  public static bool operator !=(Entity<T> lhs, Entity<T> rhs)
+  {
+    return !Equals(lhs, rhs);
+  }
+
+}
+
+```
+
+Enttes that have never been saved to a database are called *transient*. Enttes that have been saved to the database are called *persistent*.
+
 ### Creating a Customer entity
+
+1. Add a new class and make it inherit the base entity class
+2. Add auto-properties
+3. Implement (a) method(s) that change(s) properties value
+
+```csharp
+
+public class Customer : Entity<Customer>
+{ 
+  public string CustomerIdentifier { get; private set; }
+  public Name CustomerName { get; private set; }
+
+  public void ChangeCustomerName(string firstName, string  
+    middleName, string lastName)
+  {
+    CustomerName = new Name(firstName, middleName, lastName);
+  }
+
+}
+
+  public string CustomerIdentifier { get; private set; }
+  public Name CustomerName { get; private set; }
+
+  public void ChangeCustomerName(string firstName, string  
+    middleName, string lastName)
+  {
+    CustomerName = new Name(firstName, middleName, lastName);
+  }
+
+```
+
 ### Defining relations between entities
 ### The order entry model
 ### Implementing an order entry model
