@@ -600,12 +600,11 @@ GO
 
 | .NET     | SQL Server | Oracle | Comment |
 | ----     | ---------- | ------ | ------- |
-| int      | int        | NUMBER(p,0) | p is the precision and specifes the maximal number of decimal digits that can be stored. s is the scale and specifes the maximal number of decimal digits that can be stored to the right of the decimal point. For example, NUMBER (7,2) has 5 digits before and 2 digits afer the decimal point. | 
-| decimal  | money or decimal(p,s) | NUMBER(p,s) | | 
+| int      | int        | NUMBER(p,0) | p is the precision and specifes the maximal number of decimal digits that can be stored. | 
+| decimal  | money or decimal(p,s) | NUMBER(p,s) | s is the scale and specifes the maximal number of decimal digits that can be stored to the right of the decimal point. For example, NUMBER (7,2) has 5 digits before and 2 digits afer the decimal point. | 
 | string   | nvarchar(50)  | VARCHAR2(50) | For short strings of up to 4000 characters. Stores Unicode characters. | 
 | string   | nvarchar(MAX) | NCLOB | For strings of a length of up to 4 GB. Stores Unicode characters. | 
-| bool     | bit | CHAR(1) | Oracle does not have a Boolean type. Ofen it is simulated by a char(1) column containing 
-either Y or N. | 
+| bool     | bit | CHAR(1) | Oracle does not have a Boolean type. Ofen it is simulated by a char(1) column containing either Y or N. | 
 | DateTime | datetme  | TIMESTAMP | Date and tme. | 
 | DateTime | date | DATE  | Date only. | 
 | byte[]   | varbinary(n)  | RAW | Variable length binary strings of up to 2000 bytes. n is the max length of the array. | 
