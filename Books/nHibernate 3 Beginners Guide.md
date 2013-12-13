@@ -428,6 +428,47 @@ public class Customer : Entity<Customer>
 ```
 
 ### Defining relations between entities
+
+#### Owns or contains
+
+Value objects can never exist alone. They only become a meaning in conjuncton with an entty. An entty can own or contain zero to many value objects.
+
+Customer -- (CustomerName) --> Name
+
+```csharp
+public Name CustomerName { get; private set; }
+```
+
+#### One to many
+
+Product -- (Category) --> Category
+Category -- (Products) --> Product
+
+```chsarp
+// Product
+public Category Category { get; private set; }
+
+// Category
+private List<Products> products;
+public IEnumerable<Product> Products { get { return products; } }
+```
+
+#### One to one
+
+Person ----> Student
+Student ----> Person
+
+Professor ----> HeadOfDepartment
+HeadOfDepartment ----> Professor
+
+#### Many to many
+
+Product -- (Orders) --> Order
+Order -- (Products) --> Product
+
+Order --> (LineItems) --> LineItem -- (Product) --> Product
+LineItem -- (Order) --> Order
+
 ### The order entry model
 ### Implementing an order entry model
 
