@@ -656,7 +656,7 @@ GO
 
 ### Do not use database-generated IDs
 
-NHibernate POID (Persistent Object ID): High/Low, GUID
+Use NHibernate POID (Persistent Object ID): High/Low, GUID
 
 ### Views
 
@@ -679,6 +679,275 @@ Avoid as much as possible
 
 ## 5. Mapping the model to the database
 
+### What is mapping?
+
+Mapping defnes how the data that lives in the model inside the objects and their propertes fnds its way into database tables and their felds, defned in a relatonal database schema.
+
+### Types of mapping
+
+* XML-based mapping
+* Attribute-based mapping
+* Fluent mapping
+* Convention-based mapping (Auto-mapping)
+
+#### XML-based mapping
+
+Only add the type definition if it is absolutely necessary
+
+```xml
+<property name="Name" not-null="true" length="50"/>
+```
+
+Product.hbm.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" 
+  assembly="Sample1" 
+  namespace="Sample1.Domain">
+  <class name="Product">
+    <id name="Id">
+      <generator class="native"/>
+    </id>
+    <property name="Name" not-null="true" length="50"/>
+    <property name="UnitPrice" not-null="true" />
+    <property name="ReorderLevel" not-null="true" />
+    <property name="Discontinued" not-null="true" />
+  </class>
+</hibernate-mapping>
+```
+
+#### Attribute-based mapping
+
+* NHibernate contribution
+* Castle Active Records
+
+```csharp
+[Class(Name = "Products")]
+public class Product
+{
+  [Id(Column = "ProductID")]
+  [Generator(Class = "native")]
+  public int Id { get; set; }
+  [Property(Column = "ProductName", Length = 50, NotNull = true)]
+  public string Name { get; set; }
+  [Property(NotNull = true)]
+  public decimal UnitPrice { get; set; }
+  [Property(NotNull = true)]
+  public int ReorderLevel { get; set; }
+  [Property(NotNull = true)]
+  public bool Discontinued { get; set; }
+}
+```
+
+#### Fluent mapping
+
+```csharp
+public class ProductMap : ClassMap<Product>
+{
+  public ProductMap()
+  {
+    Id(x =>x.Id);
+    Map(x =>x.Name).Length(50).Not.Nullable();
+    Map(x =>x.UnitPrice).Not.Nullable();
+    Map(x =>x.ReorderLevel).Not.Nullable();
+    Map(x =>x.Discontinued).Not.Nullable();
+  }
+}
+
+```
+
+The advantages
+
+* The code used to defne the mapping is very readable and concise.
+* The mapping is kept separate from the entty, and thus does not pollute the entty.
+* The mapping is type-safe. We use no magic strings.
+* Possible selectons or setngs for each element are very discoverable as the fuent API is fully supported by IntelliSense.
+
+#### Mapping by convention
+
+
+### A word about lazy loading
+
+#### Loading data on demand
+
+Data is only to be loaded when it is really needed.
+
+#### Proxies
+
+NHibernate uses proxies. A *proxy* is a class that is wrapped around another class and acts on its behalf.
+When NHibernate loads data from the database and creates an entty, say a product, it does not return an instance of type product to us, but rather a proxy to the product. To us, this proxy seems to be a product as it behaves like a product. This is possible due to the fact that the proxy is inherited from the Product class and just overrides all its virtual members
+
+### Creating database schema creation scripts
+
+```csharp
+// Generate sql script
+
+var configuration = ...
+var sb = new StringBuilder();
+var writer = new StringWriter(sb);
+var exporter = new SchemaExport(configuration);
+exporter.Execute(true, false,false, null, writer);
+Console.WriteLine(sb);
+
+var configuration = ...
+var sb = new StringBuilder();
+var exporter = new SchemaExport(configuration);
+exporter.Create(s =>sb.AppendLine(s), false);
+Console.WriteLine(sb);
+
+var connString = "server=.\\SQLEXPRESS;database=OrderingSystem;" + 
+  "integrated security=SSPI;";
+var configuration = Fluently.Configure() 
+  .Database(MsSqlConfiguration.MsSql2008 
+  .ConnectionString(connString) 
+  )
+  .Mappings(m =>m.FluentMappings 
+  .AddFromAssemblyOf<Product>())
+  .BuildConfiguration();
+```
+
+### Fluent mapping
+
+#### Expression trees
+
+when the compiler parses code, it converts this code into tree-like structures, which can be beter analyzed and optmized. 
+This analysis of the expression tree is also called statc refecton, whereas the standard refecton using the Type type of 
+.NET is called dynamic refecton.
+
+```csharp
+// Instead of 
+Map("Some Property");
+
+// We use
+Map(x => x.SomeProperty);
+
+public Property Part<T> Map(Expression<Func<T, object>> expression)
+{…}
+```
+
+#### Classes
+
+```csharp
+public class ProductMap : ClassMap<Product>
+{
+  public ProductMap()
+  {
+  // here we define the mapping details
+  }
+}
+```
+
+#### Entity level settings
+
+```csharp
+Table("tbl_Product");
+
+// Chagen schema
+Schema("OrderingSystem");
+
+// Override the default loading behaviour
+Not.LazyLoad();
+```
+
+#### ID Columns
+
+```csharp
+Id(x =>x.Id) 
+  .GeneratedBy.HiLo("1000");
+```
+
+we are instructng NHibernate that the property Id of the Product entty shall be mapped as the Primary Key and that new IDs are to be automatcally generated by the HiLo generator of NHibernate.
+
+If you want to use GUIDs as your IDs, then you can use the GuidComb generator and not the Guid generator, as it is optmized for database use. 
+
+If the name is different
+
+```csharp
+Id(x =>x.ID, "PRODUCT_ID") 
+  .GeneratedBy.HiLo("1000");
+
+// or 
+Id(x =>x.ID)
+  .Column("PRODUCT_ID")
+  .GeneratedBy.HiLo("1000")
+```
+When the object hasn't been saved
+
+```csharp
+Id(x =>x.ID, "PRODUCT_ID") 
+  .GeneratedBy.HiLo("1000") 
+  .UnsavedValue(-1);
+```
+
+#### Properties
+
+```csharp
+Map(x =>x.Name);
+
+Map(x =>x.Name) 
+  .Length(50) 
+  .Not.Nullable();
+
+Map(x =>x.Name, "PRODUCT_NAME") 
+  .Length(50) 
+  .Not.Nullable();
+
+// mapping to an enum type
+public enum ProductTypes
+{
+  ProductTypeA,
+  ProductTypeB,
+  ...
+}
+
+Map(x =>x.ProductType) 
+  .CustomType<ProductTypes>();
+
+// bool to char(1)
+Map(x =>x.Discontinued) 
+  .CustomType("YesNo");
+
+```
+
+#### References
+
+To map a property that references another entity
+
+```csharp
+References(x =>x.Category);
+```
+
+```csharp
+// mandatory reference, many-to-one
+References(x =>x.Category) 
+  .Not.Null();
+```
+
+Foreign key
+
+If we do not specify it explicitly, then the name of the foreign key relatng the Product table to the Category table would be named Category_Id.
+
+```csharp
+// To specify the name of the foreign key
+References(x =>x.Category) 
+  .Not.Null() 
+  .ForeignKey("CategoryId");
+
+// Unique reference
+
+References(x =>x.Category) 
+  .Not.Null() 
+  .Unique();
+```
+
+### Mapping our domain
+### Use mapping conventions
+### No mapping; is that possible?
+### Using auto-mapping
+### Using ConfORM to map our domain
+### XML mapping
+### Mapping a simple domain using XML
 
 
 ## 6. Sessions and Transactions
