@@ -612,18 +612,75 @@ GO
 
 
 ### Relations, constraints, and indices
-### Adding a constraint to the Product table
+
+#### Constraint 
+
+* Not Null
+* Data Type
+* Check Constraint: limit the value
+* Foreign key
+
 ### Creating a script to add a check constraint
-### Adding an index using the designer
+
+```sql
+IF EXISTS (SELECT * FROM sys.check_constraints  
+  WHERE object_id = OBJECT_ID('CK_Products_ReorderLevel')  
+  AND parent_object_id = OBJECT_ID('Products'))
+ALTER TABLE Product DROP CONSTRAINT CK_Products_ReorderLevel
+
+GO
+
+ALTER TABLE Products ADD CONSTRAINT CK_Products_ReorderLevel CHECK (ReorderLevel>=0)
+
+GO
+```
 ### Creating a script to add an index
+
+```sql
+IF  EXISTS (SELECT * FROM sys.indexes  
+  WHERE object_id = OBJECT_ID('Product')  
+  AND name = 'IX_Products_Name')
+DROP INDEX IX_Products_Name ON Product
+GO
+
+CREATE UNIQUE INDEX IX_Products_Name ON Product (Name ASC)
+GO
+
+```
+
 ### Normal form
-### Putting it all together
-### Creating a schema for the order entry system
+
+* 1NF: A table is free of repeatng groups.
+* 2NF: Non-key atributes must depend on the whole key.
+* 3NF: Non-key atributes are dependent on "nothing but the key".
+
 ### Do not use database-generated IDs
+
+NHibernate POID (Persistent Object ID): High/Low, GUID
+
 ### Views
+
+```sql
+create view CustomerOrderTotals
+as select c.Id, 
+  c.FirstName, 
+  c.MiddleName, 
+  c.LastName, 
+  o.OrderDate, 
+  o.OrderTotal
+from Customers c
+join Orders o on c.Id = o.CustomerId 
+  where o.OrderTotal >= 1000;
+```
+
 ### What about stored procedures and triggers?
 
+Avoid as much as possible
+
 ## 5. Mapping the model to the database
+
+
+
 ## 6. Sessions and Transactions
 ## 7. Testing, Profiling, Monitoring, and Logging
 ## 8. Configuration
