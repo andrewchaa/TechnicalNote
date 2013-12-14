@@ -941,6 +941,34 @@ References(x =>x.Category)
   .Unique();
 ```
 
+#### Collections
+
+One-to-many relations:  One parent entty holds a collecton of 
+child enttes
+
+```csharp
+HasMany(x =>x.LineItems);
+```
+
+*Inverse*
+
+Between the order and a line item, there is an associaton. We use the inverse atribute to specify the "owner" of the associaton. The associaton can have only one owner, so one end has to be set to inverse while the other has to remain "non-inverse".
+
+When we mark the collecton end as Inverse, then NHibernate will frst persist the entty that owns the collecton (the order), and will persist the enttes that are in the collecton aferwards (the line items), avoiding the additonal UPDATE statement.
+
+```csharp
+HasMany(x =>x.LineItems) 
+  .Inverse();
+```
+
+*Cascade*
+
+```csharp
+HasMany(x =>x.LineItems) 
+  .Inverse() 
+  .Cascade.DeleteAllOrphans();
+```
+
 ### Mapping our domain
 ### Use mapping conventions
 ### No mapping; is that possible?
