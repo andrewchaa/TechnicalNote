@@ -966,11 +966,214 @@ HasMany(x =>x.LineItems)
 ```csharp
 HasMany(x =>x.LineItems) 
   .Inverse() 
-  .Cascade.DeleteAllOrphans();
+  .Cascade.DeleteAllOrphans();    
+```
+
+#### Many to many
+
+A book can be written by many authors and an author can write many books
+
+```csharp
+HasMany(x =>x.Author);
+
+HasMany(x =>x.Author) 
+  .Table("BookAuthor");
+```
+
+#### Mapping value objects
+
+Use ComponentMap<T>
+
+```csharp
+public class NameMap : ComponentMap<Name>
+{
+  public void NameMap()
+  { 
+    Map(x =>x.LastName).Not.Null.Length(50);
+    Map(x =>x.MiddleName).Length(50);
+    Map(x =>x.FirstName).Not.Null.Length(50);
+  }
+}
+```
+
+Now map the name property of the Customer
+
+```csharp
+Component(x =>x.Name);
 ```
 
 ### Mapping our domain
+
+```csharp
+public class EmployeeMap : ClassMap<Employee>
+{
+  public EmployeeMap()
+  {
+    Id(x =>x.ID).GeneratedBy.HiLo("100"); // intervals of 100
+    Component(x =>x.Name);
+  }
+}
+```
+
+*HiLo*
+As soon as all numbers of the given interval are used, NHibernate updates the IDs table and takes the next interval of numbers.
+
+
+```csharp
+public class NameMap : ComponentMap<Name>
+{
+  public NameMap() 
+  {
+    Map(x =>x.LastName).Not.Nullable().Length(100);
+    Map(x =>x.FirstName).Not.Nullable().Length(100);
+    Map(x =>x.MiddleName).Length(100);
+  }
+}
+```
+
+```csharp
+public class CustomerMap : ClassMap<Customer>
+{
+  public CustomerMap()
+  {
+    Id(x =>x.ID).GeneratedBy.HiLo("100");
+    Component(x =>x.CustomerName);
+    Map(x =>x.CustomerIdentifier).Not.Nullable().Length(50);
+    HasMany(x =>x.Orders).Access.CamelCaseField().Inverse().Cascade.AllDeleteOrphan();
+  }
+}
+```
+
+```csharp
+public class AddressMap : ComponentMap<Address>
+{
+  public AddressMap()
+  {
+    Map(x =>x.Line1).Not.Nullable().Length(50);
+    Map(x =>x.Line2).Length(50);
+    Map(x =>x.ZipCode).Not.Nullable().Length(10);
+    Map(x =>x.City).Not.Nullable().Length(50);
+    Map(x =>x.State).Not.Nullable().Length(50);
+  }
+}
+```
+
+
+```csharp
+public class OrderMap : ComponentMap<Order>
+{
+  public OrderMap()
+  {
+    Map(x =>x.OrderDate).Not.Nullable();
+    Map(x =>x.OrderTotal).Not.Nullable();
+    References(x =>x.Customer).Not.Nullable(); //map the Customer property as a one-to-many reference
+
+    HasMany(x =>x.LineItems).Access.CamelCaseField().Inverse().Cascade.AllDeleteOrphan();
+  }
+}
+```
+
+```csharp
+public class LineItemMap : ComponentMap<LineItem>
+{
+  public LineItemMap()
+  {
+    References(x =>x.Order).Not.Nullable();
+    References(x =>x.Product).Not.Nullable();
+    Map(x =>x.Quantity).Not.Nullable();
+    Map(x =>x.UnitPrice).Not.Nullable();
+    Map(x =>x.Discount).Not.Nullable();
+  }
+}
+```
+
+```csharp
+public class ProductMap : ComponentMap<Product>
+{
+  public ProductMap()
+  {
+    Map(x =>x.Name).Not.Nullable().Length(50);
+    Map(x =>x.Description).Length(4000);
+    Map(x =>x.UnitPrice).Not.Nullable();
+    Map(x =>x.ReorderLevel).Not.Nullable();
+    Map(x =>x.Discontinued);
+  }
+}
+```
+
 ### Use mapping conventions
+
+#### ID conventions
+
+```csharp
+public class MyIdConvention : IIdConvention
+{
+  public void Apply(IIdentityInstance instance)
+  {
+    instance.GeneratedBy.HiLo("100");
+  }
+}
+```
+
+Once this conventon is added to the confguraton, we can simplify the mapping of Id of all our enttes to this:
+
+```csharp
+Id(x =>x.Id);
+```
+
+Defne the column name of the Primary Key as being a combinaton of the entty name and ID
+
+```csharp
+instance.Column(string.Format("{0}Id", instance.EntityType.Name));
+```
+
+#### Property conventions
+
+Always map propertes of name Name to the non-nullable database felds of maximum length 50
+
+```csharp
+public class MyNameConvention : IPropertyConvention
+{
+  public void Apply(IPropertyInstance instance)
+  {
+    if (instance.Name != "Name") return;
+    instance.Length(50);
+    instance.Not.Nullable();
+  }
+}
+```
+
+Map a property of type bool to a char(1) feld containing 'Y' or 'N' for true or false, respectvely.
+
+```csharp
+public class MyBoolConvention : IPropertyConvention
+{
+  public void Apply(IPropertyInstance instance)
+  {
+    if (instance.Type == typeof(bool))
+    instance.CustomType("YesNo");
+  }
+}
+```
+
+#### Foreign keys conventions
+
+Customer_Id by conventon. We can change the convention to be like CustomerId
+
+```csharp
+public class MyForeignKeyConvention : ForeignKeyConvention
+{
+  protected override string GetKeyName(Member property, Type type)
+  {
+    // property == null for many-to-many, one-to-many, join 
+    // property != null for many-to-one
+    var refName = property == null ? type.Name :property.Name;
+    return string.Format("{0}Id", refName);
+  }
+}
+```
+
+
 ### No mapping; is that possible?
 ### Using auto-mapping
 ### Using ConfORM to map our domain
