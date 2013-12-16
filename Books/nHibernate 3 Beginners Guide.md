@@ -861,6 +861,13 @@ we are instructng NHibernate that the property Id of the Product entty shall be 
 
 If you want to use GUIDs as your IDs, then you can use the GuidComb generator and not the Guid generator, as it is optmized for database use. 
 
+*Hi/Lo algorithm
+http://stackoverflow.com/questions/282099/whats-the-hi-lo-algorithm?lq=1
+
+The basic idea is that you have two numbers to make up a primary key- a "high" number and a "low" number. A client can basically increment the "high" sequence, knowing that it can then safely generate keys from the entire range of the previous "high" value with the variety of "low" values.
+For instance, supposing you have a "high" sequence with a current value of 35, and the "low" number is in the range 0-1023. Then the client can increment the sequence to 36 (for other clients to be able to generate keys while it's using 35) and know that keys 35/0, 35/1, 35/2, 35/3... 35/1023 are all available.
+It can be very useful (particularly with ORMs) to be able to set the primary keys on the client side, instead of inserting values without primary keys and then fetching them back onto the client. Aside from anything else, it means you can easily make parent/child relationships and have the keys all in place before you do any inserts, which makes batching them simpler.
+
 If the name is different
 
 ```csharp
@@ -1175,13 +1182,213 @@ public class MyForeignKeyConvention : ForeignKeyConvention
 
 
 ### No mapping; is that possible?
-### Using auto-mapping
-### Using ConfORM to map our domain
+
+It is recommended when starting a brand new project
+
+#### Auto-mapping with Fluent NHibernate
+
+Instruct what domain classes to be auto-mapped
+
+```csharp
+public class OrderingSystemConfiguration : DefaultAutomappingConfiguration
+{
+  public override bool ShouldMap(Type type)
+  {
+    return type.Namespace == typeof(Employee).Namespace;
+  }
+}
+```
+
+Instruct which are the value objects
+
+```csharp
+public override boolIsComponent(Type type)
+{
+  var componentTypes = new[] {typeof (Name), typeof (Address)};
+  return componentTypes.Contains(type);
+}
+```
+
+Configure
+
+```csharp
+var cfg = new OrderingSystemConfiguration();
+var configuration = Fluently.Configure() 
+  .Database(/* database config */) 
+  .Mappings(m =>m.AutoMappings.Add( 
+  AutoMap.AssemblyOf<Employee>(cfg)) 
+  .BuildConfiguration();
+```
+
 ### XML mapping
+
+Add the two XML schema defniton fles nhibernate-configuration.xsd and nhibernate-mapping.xsd
+The XML file should be Embedded Resource.
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" 
+  namespace="OrderingSystem.Domain" 
+  assembly="OrderingSystem">
+
+  <class name="Product" table="Product">
+
+    <id name="Id" type="Int32" unsaved-value="null">
+      <generator class="hilo"/>
+    </id>
+    <property name="Name" type="String">
+      <column name="Name" length="255" sql-type="varchar" 
+        not-null="true"/>
+    </property>
+  </class>  
+
+</hibernate-mapping>
+
+
+```
+
+#### One-to-many relations
+
+the Order property of the LineItem entity
+```xml
+<many-to-one name="Order" class="Order"  
+  column="OrderId" not-null="true"/>
+```
+
+In the Order mapping file, create a bag
+
+```xml
+<bag name="LineItems" inverse="true" cascade="all-delete-orphan">
+  <key column="OrderId"/>
+  <one-to-many class="LineItem"/>
+</bag>  
+```
+
+#### Many-to-many relations
+
+From the Book side
+
+```xml
+<bag name="Authors" table="BookAuthor">
+  <key column="BookId"/>
+  <many-to-many class="Author" column="AuthorId" />
+</bag>
+```
+
+From the Author side
+
+```xml
+<bag name="Books" table="BookAuthor">
+  <key column="AuthorId"/>
+  <many-to-many class="Book" column="BookId" />
+</bag>
+```
+
+#### Mapping value objects
+
+```xml
+<component name="Name" class="Name">
+  <property name="LastName" length="50" not-null="true"/>
+  <property name="FirstName" length="50" not-null="true"/>
+  <property name="MiddleName" length="50"/>
+</component>
+```
+
 ### Mapping a simple domain using XML
 
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="XmlMappingSample" namespace="XmlMappingSample.Domain">
+  <class name="Customer">
+    <id name="Id"><generator class="hilo"/></id>
+    <property name="CustomerName"/>
+  </class>
+</hibernate-mapping>
+
+
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="XmlMappingSample" namespace="XmlMappingSample.Domain">
+  <class name="LineItem">
+    <id name="Id"><generator class="hilo"/></id>
+    <property name="Quantity"/>
+    <property name="UnitPrice"/>
+    <property name="ProductCode"/>
+  </class>
+</hibernate-mapping>
+
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="XmlMappingSample" namespace="XmlMappingSample.Domain">
+  <class name="Order">
+    <id name="Id"><generator class="hilo"/></id>
+    <property name="OrderDate"/>
+    <many-to-one name="Customer" column="CustomerId"/>
+    <bag name="LineItems" inverse="true" >
+      <key column="OrderId"/>
+      <one-to-many class="LineItem"/>
+    </bag>
+  </class>
+</hibernate-mapping>
+```
 
 ## 6. Sessions and Transactions
+
+### What are sessions and transactions
+
+Through a session object, we are able to communicate with a database and execute various operations on it.
+A transaction object make managing multiple operations as a unity
+
+#### Session
+an abstract or virtual conduit for the database
+
+#### Transaction
+Allow us to execuite a number of tasks as a single unit of work.
+
+An operation is a transaction if and only if it fulfils ACID (Atomic, Consistent, Isolated, Durable)
+
+* Atomic – the operaton can only be executed as a whole and not broken apart into smaller units of executon.
+* Consistent – the outcome of the operaton has to leave the system in a consistent state.
+* Isolated – the operaton has to run in isolaton. The outside world cannot see the result of an unfnished transacton.
+* Durable – the outcome of the operaton is permanent.
+
+### The session factory
+
+Create as many sessions as required
+Very expensive to create and specific to a database
+Thread-safe. Code on different threads can use the same session factory
+
+### Creating your first session
+
+```csharp
+using (var session = sessionFactory.OpenSession())
+{
+  using (var transaction = session.BeginTransaction())
+  {
+    // create, update, delete, or read data
+    transaction.Commit();
+  }
+}
+
+```
+
+#### Adding new data to the database
+
+```csharp
+var newProductId = (int)session.Save(newProduct);
+```
+
+#### Reading data from the database
+
+### First level cache or identity map
+### No database operation without a transaction
+### NHibernate session versus database session
+### Creating a session and doing some CRUD
+### Session management
+### Implementing session management for a web application
+### Unit of Work
+### Handling exception
+### Second level cache
+### Using a second level cache
+
 ## 7. Testing, Profiling, Monitoring, and Logging
 ## 8. Configuration
 ## 9. Writing Queries
