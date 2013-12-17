@@ -1378,7 +1378,104 @@ var newProductId = (int)session.Save(newProduct);
 
 #### Reading data from the database
 
+```csharp
+var product = session.Get<Product>(1);
+```
+
+To load the list of all Categories
+
+```csharp
+var allCategories = session.Query<Category>().ToList();
+```
+
+LINQ to NHibernate returns a list of type IQueryable<Category>, which is lazy evaluated. If we want NHibernate to eagerly 
+load all records, then we can force it to do so by calling ToList().
+
+#### Get versus Load
+
+Get loads an entity
+
+```csharp
+var product = session.Get<Product>(1);
+```
+
+Load is for lazy loading. It doesn't retrieve the entity from databaes but create an proxy object.
+
+```csharp
+var product = session.Load<Product>(1):
+```
+
+We get a proxied Product entty whose ID is equal to 1. The moment our code tries to access any property other than the ID, NHibernate loads the entty from the database.
+
+When to use load, then?
+
+```csharp
+var product = session.Get<Product>(productId);
+product.Category = session.Load<Category>(newCategoryId);
+```
+
+A product belongs to a Category and thus, the Product entty has a property of type Category. However, when manipulatng products, we don't want to change categories at the same tme, only use them.
+
+#### Updating existing data
+
+The moment the session object is fushed, the changes are automatcally persisted by NHibernate.
+
+```csharp
+using (var session = sessionFactory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  var product = session.Get<Product>(1);
+  product.UnitPrice = 10.55m;
+  // new unit price
+  tx.Commit();
+}
+```
+
+#### Deleting data
+
+To delete an existng record in the database, we have to frst load it and can then pass the object to the Delete method of the session object
+
+```csharp
+var productToDelete = session.Load<Product>(productId);
+session.Delete(productToDelete);
+```
+
+The previous optmizaton is not applicable in the case that the entty to be deleted contains dependent enttes and/or collectons of child enttes that are mapped with cascading delete constraints. In such a case, NHibernate will have to load the entty into memory.
+
 ### First level cache or identity map
+
+The first level cache is created when the session object is created and gets destroyed when the session object is disposed.
+
+An entity is loaded from database by using its id. NHibernate puts this entity into the first level cache. When the system tries to load the same entty again from the database, then the session object frst consults its cache. If the entty already exists in the cache, then NHibernate returns the cached instance. Only if the cache does not yet contain the entty with the requested ID, does the NHibernate session object load the entty from the database.
+
+* Applicaton requests a product with ID = 1 from the session
+* Session asks the frst level cache: "Do you contain product with ID 1?"
+* First level cache responds: "No"
+* Session loads product with ID 1 from the database
+* Session puts product into the frst level cache, assigning it as a key for the value of its ID (= 1)
+* Session returns product instance to applicaton
+* Applicaton executes more operatons
+* Applicaton again requests a product with ID = 1 from the session
+* Session asks frst level cache: "Do you contain product with ID 1?"
+* First level cache responds: "Yes"
+* Session loads product with ID 1 from the cache using the ID as a key and returns it to the applicaton
+
+This frst level cache is also called an identty map.
+
+#### Clearing the cache
+
+Remove an entity from the cache
+
+```csharp
+session.Evict(product);
+```
+
+To completely clean the cache
+
+```csharp
+session.Clear();
+```
+
 ### No database operation without a transaction
 ### NHibernate session versus database session
 ### Creating a session and doing some CRUD
