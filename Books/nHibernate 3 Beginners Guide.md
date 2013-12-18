@@ -1477,9 +1477,49 @@ session.Clear();
 ```
 
 ### No database operation without a transaction
+
+Whenever we execute operatons that manipulate data in a database, we should wrap these operatons inside a transacton:
+
+```csharp
+using( var session = sessionFactory.OpenSession())
+{
+  using (var transaction = session.BeginTransaction())
+  {
+    // code that manipulates data…
+  }
+}
+```
+
+#### Transaction when querying data?
+
+For optmal performance and predictability of the result, we should also wrap read operatons into an explicit transacton. In fact, this is a recommended practce when working with NHibernate.
+
 ### NHibernate session versus database session
-### Creating a session and doing some CRUD
+
+ADO.NET Connection
+
+An open connection to a database that lasts as long as it is open.
+
+```csharp
+using (var connection = new SqlConnection("..."))
+{
+  connection.Open();
+  //... write to or read from DB
+  connection.Close();
+}
+```
+
+A NHibernate session is slightly different. It can span multiple ADO.NET connections and a physical connection is not maintained during its life. NHibernate session opens ADO.NET connection only if a write or read operation is taking place 
+
+* it manages the first level cache
+* it's a unit of work container and keeps track of all the changes
+
 ### Session management
+
+#### Web-based applications
+
+A session object is cheap to create, but the session factory isn't. So create 
+
 ### Implementing session management for a web application
 ### Unit of Work
 ### Handling exception
