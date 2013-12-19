@@ -1763,9 +1763,142 @@ Download and use Sqlite for testing.
 
 ### Preparing our environment for testing
 
+Download NUnit
 
+Given, When, Then skeleton
+
+```csharp
+public class SpecificationBase
+{
+  [TestFixtureSetUp]
+  public virtual void TestFixtureSetUp()
+  {
+    BeforeAllTests();
+  }
+  [SetUp]
+  public void SetUp()
+  {
+    Given();
+    When();
+  }
+  [TearDown]
+  public void TearDown()
+  {
+    CleanUp();
+  }
+
+  [TestFixtureTearDown]
+  public void TestFixtureTearDown()
+  {
+    AfterAllTests();
+  }
+
+  protected virtual void BeforeAllTests(){}
+  protected virtual void Given(){}
+  protected virtual void When(){}
+  protected virtual void CleanUp(){}
+  protected virtual void AfterAllTests(){}
+}  
+
+public class ThenAttribute : TestAttribute {}
+```
+
+```csharp
+[TestFixture]
+public class when_creating_a_name_value_object 
+  : SpecificationBase
+{
+  private string lastName;
+  private string firstName;
+  private string middleName;
+  private Name result;
+  protected override void Given()
+  {
+    lastName = "Schenker";
+    firstName = "Gabriel";
+    middleName = "N.";
+  }
+  protected override void When()
+  {
+    result = new Name(lastName, firstName, middleName);
+  }
+    protected override void When()
+  {
+    result = new Name(lastName, firstName, middleName);
+  }
+  [Then]
+  public void it_should_populate_the_last_name_property()
+  {
+    Assert.Equals(result.LastName, lastName);
+  }
+  [Then]
+  public void it_should_populate_the_first_name_property()
+  {
+    Assert.Equals(result.FirstName, firstName);
+  }
+  [Then]
+  public void it_should_populate_the_middle_name_property()
+  {
+    Assert.Equals(result.MiddleName, middleName);
+  }
+}
+```
+
+#### Testing the mapping
+
+Create an entity and populate it with precanned values
+
+```csharp
+var product = new Product
+{
+  Name = "Apple",
+  Description = "Description for apple",
+  UnitPrice = 1.50m,
+  ReorderLevel = 10,
+  Discontinued = true,
+};
+
+session.Save(product);
+session.Flush(); //Flush() enforces the writing of all changes to the database
+```
+
+Now load the data back.
+
+```csharp
+session.Evict(product); // eliminates the entity from the first level cache.
+var fromDb = session.Get<Product>(product.Id);
+
+Assert.That(fromDb, Is.Not.Null);
+```
+
+Compare the newly hydrated entity property-by-property with the new entity
+
+```csharp
+Assert.That(fromDb.Name, Is.EqualTo(product.Name));
+Assert.That(fromDb.Description, Is.EqualTo(product.Description));
+Assert.That(fromDb.UnitPrice, Is.EqualTo(product.UnitPrice));
+Assert.That(fromDb.ReorderLevel, Is.EqualTo(product.ReorderLevel));
+Assert.That(fromDb.Discontinued, Is.EqualTo(product.Discontinued));
+```
+
+#### Testing the mapping with Fluent NHibernate
+
+PersistenceSpecification<T>
+
+```csharp
+new PersistenceSpecification<Product>(session) 
+  .CheckProperty(x => x.Name, "Apple") 
+  .CheckProperty(x => x.Description, "Description for apple") 
+  .CheckProperty(x => x.UnitPrice, 1.50m) 
+  .CheckProperty(x => x.ReorderLevel, 10) 
+  .CheckProperty(x => x.Discontinued, true) 
+  .VerifyTheMappings();
+```
 
 ### Creating the base for testing
+
+
+
 ### Using SQLite in our tests
 ### Logging
 ### Adding logging to our application
