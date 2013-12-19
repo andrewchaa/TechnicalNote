@@ -1613,9 +1613,167 @@ finally
 ```
 
 ### Second level cache
+
+when we want to cache data globally. The second level cache is defned per session factory and lives as long as the session factory is not disposed.  Once an entty is loaded by its unique ID and the second level cache is actve, the entty is available for all other sessions (of the same session factory). To enable the second level cache, we have to defne which cache provider we want to use. There exist various implementatons of a second level cache.
+
+```csharp
+using (var session1 = sessionFactory.OpenSession())
+{
+  var product = session1.Get<Product>(1);
+}
+using (var session2 = sessionFactory.OpenSession())
+{
+  var product = session2.Get<Product>(1); // this will come from the 2nd level cache
+}
+
+// for extra mapping
+Cache.ReadWrite();
+```
+#### Cache region
+
+Use region to only clear part of the 2nd level cache
+
+```csharp
+sessionFactory.EvictQueries("My Region"); // to clear the cache region
+```
+
+#### Second level cache implementation
+
+* SysCache
+* SysCache2
+* Velocity
+* Prevalence 
+* MemCache
+
 ### Using a second level cache
 
-## 7. Testing, Profiling, Monitoring, and Logging
+```csharp
+public class Product
+{
+  public virtual int Id { get; set; }
+  public virtual string Name { get; set; }
+  public virtual decimal UnitPrice { get; set; }
+  public virtual int ReorderLevel { get; set; }
+  public virtual bool Discontinued { get; set; }
+}
+
+public class ProductMap : ClassMap<Product>
+{
+  publicProductMap()
+  {
+    Cache.ReadWrite();
+    Id(x =>x.Id).GeneratedBy.HiLo("1000");
+    Map(x =>x.Name);
+    Map(x =>x.UnitPrice);
+    Map(x =>x.ReorderLevel);
+    Map(x =>x.Discontinued);
+  }
+}
+
+//Program.cs
+private static ISessionFactory sessionFactory;
+
+private static void ConfigureSystem()
+{
+  const string connString= 
+    "server=.\\SQLEXPRESS;database=SecondLevelCacheSample;" + 
+    "integrated security=SSPI;";
+
+var configuration = Fluently.Configure() 
+  .Database(MsSqlConfiguration.MsSql2008 
+  .ConnectionString(connString) 
+  .ShowSql) 
+  .Mappings(m =>m.FluentMappings 
+  .AddFromAssemblyOf<Product>()) 
+  .BuildConfiguration();
+
+  configuration.Properties["cache.provider_class"] = 
+     "NHibernate.Cache.HashtableCacheProvider"; // Don't use this on production
+  configuration.Properties["cache.use_second_level_cache"] = 
+     "true";    
+
+  var exporter = new SchemaExport(configuration);
+  exporter.Execute(true, true, false);   
+
+  sessionFactory = configuration.BuildSessionFactory();
+}
+
+private static void TestLoadEntity()
+{
+  int productId;
+  var product = new Product
+  {
+    Name = "Apple",
+    UnitPrice = 1.55m,
+    ReorderLevel = 100,
+    Discontinued = false
+  };
+
+  using (var session = sessionFactory.OpenSession())
+  using (var tx = session.BeginTransaction())
+  {
+    productId = (int) session.Save(product);
+    tx.Commit();
+  }
+
+  using (var session1 = sessionFactory.OpenSession())
+  {
+    var product1 = session1.Get<Product>(productId);
+  }
+  using (var session2 = sessionFactory.OpenSession())
+  {
+    var product2 = session2.Get<Product>(productId);
+  }
+
+}
+
+static void Main()
+{
+  ConfigureSystem();
+  TestLoadEntity();
+  Console.Write("\r\nHit enter to exit:");
+  Console.ReadLine();
+}
+```
+
+## 7. Testing, Profiling, Monitoring, and Loggi ng
+
+### Why do we need tests?
+
+Safety net for refactoring
+
+### What should we test?
+
+* Complex mathematcal or statstcal algorithms
+* Involved business logic or business processes
+* Code that is used as the foundaton or framework in an applicaton
+* The mapping of the domain model to the underlying database schema
+* Complex database queries
+
+### What about the database?
+
+Ways to set up test data
+
+* In the frst approach, we wipe out the database schema each tme, recreate it, and fll it with the base data we need prior to each test
+* We write compensatng code that removes the changes done by our tests in the clean-up method of our test class
+* We wrap each test inside a transacton that is rolled back at the end of the corresponding test
+* We use a snapshot of the database that is restored afer each test run
+
+Download and use Sqlite for testing.
+
+### Preparing our environment for testing
+
+
+
+### Creating the base for testing
+### Using SQLite in our tests
+### Logging
+### Adding logging to our application
+### Enable logging in NHibernate
+### Monitoring and profiling
+### Adding NHibernate Profiler support
+
+
 ## 8. Configuration
 ## 9. Writing Queries
 ## 10. Validating the Data to Persist
