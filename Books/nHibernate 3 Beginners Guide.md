@@ -1518,11 +1518,100 @@ A NHibernate session is slightly different. It can span multiple ADO.NET connect
 
 #### Web-based applications
 
-A session object is cheap to create, but the session factory isn't. So create 
+A session object is cheap to create, but the session factory isn't. So create the session factory only once during the life cycle of the application. The session factory is thread-safe. 
+
+The common pattern is to create NHibernate sessions per request. A new session object is created at the beginning of a new web request and then flushed and disposed at the end of the web request. Store the session object in the IoC container
 
 ### Implementing session management for a web application
+
+```csharp
+public class Product
+{
+  public virtual int Id { get; set; }
+  public virtual string Name { get; set; }
+}
+
+public class ProductMap : ClassMap<Product>
+{
+  public ProductMap()
+  {
+    Id(x =>x.Id).GeneratedBy.HiLo("1000");
+    Map(x =>x.Name);
+  }
+}
+
+public class SessionProvider
+{
+  public static SessionProvider Instance { get; private set; }
+
+  private static ISessionFactory sessionFactory;
+  
+  static SessionProvider()
+  {
+    var provider = new SessionProvider();
+    provider.Initialize();
+    Instance = provider;
+  }
+
+  private SessionProvider()
+  {
+  }
+
+  private void Initialize()
+  {
+    const string connString = 
+      "server=.\\SQLEXPRESS;database=SilverlightSample;" + 
+      "user id=sa;password=sa;";
+    var configuration = Fluently.Configure() 
+      .Database(MsSqlConfiguration.MsSql2008 
+      .ConnectionString(connString) 
+      .ShowSql()) 
+      .Mappings(m =>m.FluentMappings 
+      .AddFromAssemblyOf<Product>()) 
+      .BuildConfiguration();
+
+     var exporter = new SchemaExport(configuration);
+      exporter.Execute(true, true, false);
+      sessionFactory = configuration.BuildSessionFactory();
+    }
+
+  public ISession OpenSession()
+  {
+    return sessionFactory.OpenSession();
+  }
+
+}
+```
+
 ### Unit of Work
+
+A Unit of Work (UoW) is used to keep track of everything that happens during a business transaction and that affects the database. It keeps track of every single step needed to update the database once the business transaction is completed.
+In NHibernate, the session object is a UoW container. Only when the session is being flushed, will the database be altered. 
+
 ### Handling exception
+
+In case of an exception during a database operation, the session object is in an incosistent state and should not be used any more. Immediately rollback the active transaction, dispose the current session and start over.
+
+```csharp
+var session = sessionFactory.OpenSession();
+var transaction = session.BeginTransaction();
+try
+{
+  // do some work
+  ...
+  transaction.Commit();
+}
+catch (Exception e)
+{
+  transaction.Rollback();
+  throw;
+}
+finally
+{
+  session.Close();
+}  
+```
+
 ### Second level cache
 ### Using a second level cache
 
