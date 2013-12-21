@@ -2288,12 +2288,324 @@ The following elements can thus be omited:
 
 #### What byte code provider and proxy factory?
 
-### XML configuration
+When using lazy loading, we need to define which proxy generator NHibernate shall use. Currently,
+
+* [Castle] (http://www.castleproject.org/)
+* [LinFu] (http://code.google.com/p/linfu/)
+* [Spring.NET] (http://www.springframework.net/)
+
+```xml
+<property name="proxyfactory.factory_class">
+  NHibernate.ByteCode.Castle.ProxyFactoryFactory, NHibernate.ByteCode.Castle
+</property>
+```
+
+From NHibernate 3.2, it has its own version of byte code proxy, which is a modified version of LinFu. So no need to configure it.
+
+#### Mappings
+
+```csharp
+configuration.AddClass(typeof (Product));
+
+// or
+
+configuration.AddAssembly(typeof (Product).Assembly);
+```
+
 ### Configuring NHibernate using XML
+
+1. Reference NHibernate.dll, NHibernate.ByteCode.Castle.dll, and System.Data.SQLite.dll 
+2. Add the two fles nhibernate-configuration.xsd and nhibernate-mapping.xsd
+3. Domain class
+
+```csharp
+public class Account
+{
+  public int Id { get; set; }
+  public string Name { get; set; }
+  public decimal Balance { get; set; }
+  public string CurrencyCode { get; set; }
+  public bool IsActive { get; set; }
+}
+```
+
+4. hbm for the class
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2"  
+  assembly="XmlConfigurationSample"  
+  namespace="XmlConfigurationSample" >
+  <class name="Account" lazy="false">
+    <id name="Id">
+      <generator class="hilo"/>
+    </id>
+    <property name="Name"/>
+    <property name="Balance"/>
+    <property name="CurrencyCode"/>
+    <property name="IsActive"/>
+  </class>
+</hibernate-mapping>
+```
+
+Set the build action to Embedded Resource
+
+5. Configure NHibernate in Application config
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <configSections>
+    <section name="hibernate-configuration" type= 
+      "NHibernate.Cfg.ConfigurationSectionHandler, NHibernate" />
+  </configSections>
+</configuration>
+
+<hibernate-configuration xmlns="urn:nhibernate-configuration-2.2">
+  <session-factory>
+    <property name="connection.provider">
+      NHibernate.Connection.DriverConnectionProvider
+    </property>
+    <property name="connection.driver_class">
+      NHibernate.Driver.SQLite20Driver
+    </property>
+    <property name="dialect">
+      NHibernate.Dialect.SQLiteDialect
+    </property>
+    <property name="proxyfactory.factory_class">
+      NHibernate.ByteCode.Castle.ProxyFactoryFactory,  
+      NHibernate.ByteCode.Castle
+    </property>
+    <property name="connection.connection_string_name">
+      Sample
+    </property>
+    <property name="show_sql">
+      true
+    </property>
+  </session-factory>
+</hibernate-configuration>
+```
+
+6. Set the connection string
+
+```xml
+<connectionStrings>
+  <add name="Sample"  
+    connectionString= 
+    "data source=xmlconfig.dbf;version=3;new=true;"/>
+</connectionStrings>
+```
+
+7. In the main method
+
+```csharp
+using NHibernate.Cfg;
+using NHibernate.Tool.hbm2ddl;
+
+var configuration = new Configuration();
+configuration.AddAssembly(typeof(Account).Assembly);
+
+private static void BuildSchema(Configuration configuration)
+{
+  new SchemaExport(configuration).Execute(true, true, false);
+}
+
+BuildSchema(configuration);
+var factory = configuration.BuildSessionFactory();
+
+using (var session = factory.OpenSession())
+{
+  var account = new Account
+  {
+    Name = "USB-10234-R1",
+    Balance = 1545.55m,
+    CurrencyCode = "CHF",
+    IsActive = true
+  };
+  session.Save(account);
+
+}
+
+session.Flush();
+session.Clear();
+
+var fromDb = session.Get<Account>(account.Id);
+System.Console.Write("\r\n\nHit enter to exit:");
+System.Console.ReadLine();
+```
+
 ### Configuring NHibernate in code
-### Configuring NHibernate in code
-### Fluent configuration
+
+1. Add reference to NHibernate.dll and NHibernate.ByteCode.Castle.dll
+2. Add nhibernate-configuration.xsd and nhibernate-mapping.xsd
+3. Product class
+
+```csharp
+public class Product
+{
+  public int Id { get; set; }
+  public string Name { get; set; }
+  public decimal UnitPrice { get; set; }
+  public int ReorderLevel { get; set; }
+  public int UnitsOnStock { get; set; }
+  public bool Discontinued { get; set; } 
+}
+```
+
+4. Product.hbm.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="CodeConfigurationSample" 
+  namespace="CodeConfigurationSample" >
+  <class name="Product" lazy="false">
+    <id name="Id">
+      <generator class="hilo"/>
+    </id>
+    <property name="Name"/>
+    <property name="UnitPrice"/>
+    <property name="ReorderLevel"/>
+    <property name="UnitsOnStock"/>
+    <property name="Discontinued"/>
+  </class>
+</hibernate-mapping>
+```
+
+5. Program.cs
+
+```csharp
+using NHibernate.Cfg;
+using NHibernate.Tool.hbm2ddl;
+
+private static Configuration GetConfiguration()
+{
+}
+```
+
+6. Connection Provider
+
+```csharp
+  var cfg = new Configuration();
+  cfg.Properties.Add(Environment.ConnectionProvider, typeof(DriverConnectionProvider).FullName);
+```
+
+7. Connection driver and dialect
+
+```csharp
+  cfg.Properties.Add(Environment.ConnectionDriver, typeof(SqlClientDriver).FullName);
+  cfg.Properties.Add(Environment.Dialect, typeof(MsSql2008Dialect).FullName);
+```
+
+8. Proxy factory factory
+The desired class does not live in the NHibernate assembly but in the NHibernate.ByteCode.Castle assembly, we cannot use the FullName this tme, but have to use the property AssemblyQualifiedName
+
+```csharp
+  cfg.Properties.Add(Environment.ProxyFactoryFactoryClass, typeof(ProxyFactoryFactory).AssemblyQualifiedName);
+```
+
+9. Connection string
+
+```csharp
+  cfg.Properties.Add(Environment.ConnectionString, @"server=.\SQLEXPRESS;database= CodeConfigurationSample;" + 
+  "integrated security=SSPI;");
+```
+
+10. Log the sql
+
+```csharp
+cfg.Properties.Add(Environment.ShowSql, "true");
+```
+
+11. Declarle which mapping to use
+
+```csharp
+cfg.AddClass(typeof (Product));
+```
+
 ### Using Loquacious to configure NHibernate
+
+1. Connection string in app.config
+
+```csharp
+<?xml version="1.0"?>
+<configuration>
+  <connectionStrings>
+    <add name="Sample"  
+      connectionString="data source=loquaciousConfig.dbf; 
+      version=3;new=true;"/>
+  </connectionStrings>
+</configuration>
+```
+
+2. Define mapping (Person.hbm.xml.)
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" 
+  assembly="LoquatiousConfigurationSample" 
+  namespace="LoquatiousConfigurationSample" >
+  <class name="Person" lazy="false">
+    <id name="Id">
+      <generator class="guid.comb"/>
+    </id>
+    <component name="Name">
+      <property name="FirstName"/>
+      <property name="LastName"/>
+      <property name="MiddleName"/>
+    </component>
+    <property name="SSN"/>
+    <property name="Birthdate"/>
+  </class>
+</hibernate-mapping>    
+```
+
+3. Monitor with NHibernate Profiler
+
+```csharp
+HibernatingRhinos.Profiler.Appender.NHibernate.NHibernateProfiler.Initialize();
+```
+
+4. Configuration
+
+```csharp
+private static Configuration GetConfiguration()
+{
+  var cfg = new Configuration();
+  cfg.SessionFactory() 
+    .Proxy 
+      .Through<ProxyFactoryFactory>() 
+      .Mapping 
+      .UsingDefaultCatalog("sampleCatalog") 
+      .UsingDefaultSchema("dbo") 
+      .Integrate 
+      .LogSqlInConsole() 
+      .Using<SQLiteDialect>() 
+      .Connected 
+      .Through<DriverConnectionProvider>() 
+      .By<SQLite20Driver>() 
+      .ByAppConfing("Sample");
+  cfg.AddAssembly(typeof(Person).Assembly);
+  return cfg;
+}
+
+// or with lambda
+var cfg = new Configuration();
+cfg.Proxy(p => { p.ProxyFactoryFactory<ProxyFactoryFactory>(); });
+cfg.Mappings(m =>
+{
+  m.DefaultCatalog = "NH3BeginnersGuide";
+  m.DefaultSchema = "dbo";
+});
+cfg.DataBaseIntegration(db =>
+{
+  db.ConnectionProvider<DriverConnectionProvider>();
+  db.Driver<SqlClientDriver>();
+  db.Dialect<MsSql2008Dialect>();
+  db.ConnectionStringName = "Sample2";
+  db.LogSqlInConsole = true;
+});
+
+```
 ### Convention over configuration
 
 ## 9. Writing Queries
