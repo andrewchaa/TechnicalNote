@@ -1897,12 +1897,349 @@ new PersistenceSpecification<Product>(session)
 
 ### Creating the base for testing
 
+```csharp
+public class ThenAttribute : TestAttribute
+{ }
 
+public abstract class SpecificationBase
+{
+  [TestFixtureSetUp]
+  public void TestFixtureSetUp()
+  {
+    BeforeAllTests();
+  }
+  [SetUp]
+  public void SetUp()
+  {
+    Given();
+    When();
+  }
+  [TearDown]
+  public void TearDown()
+  {
+    CleanUp();
+  }
+  [TestFixtureTearDown]
+  public void TestFixtureTearDown()
+  {
+    AfterAllTests();
+  }
+  protected virtual void BeforeAllTests(){ }
+  protected virtual void Given(){ }
+  protected virtual void When(){ }
+  protected virtual void CleanUp(){ }
+  protected virtual void AfterAllTests(){ }
+}      
+
+public abstract class MappingSpecificationBase : SpecificationBase
+{
+  protected Configuration configuration;
+  private ISessionFactory sessionFactory;
+  protected ISession session;
+  protected override void BeforeAllTests()
+  {
+    configuration = Fluently.Configure() 
+      .Database(DefineDatabase) 
+      .Mappings(DefineMappings) 
+      .BuildConfiguration();
+    CreateSchema(configuration);
+    sessionFactory = configuration.BuildSessionFactory();
+  }
+  protected ISession OpenSession()
+  {
+    return sessionFactory.OpenSession();
+  }
+  protected override void Given()
+  {
+    base.Given();
+    session = OpenSession();
+  }
+  protected abstract IPersistenceConfigurer DefineDatabase();
+  protected abstract void DefineMappings(MappingConfiguration m);
+  protected virtual void CreateSchema(Configuration cfg){}
+}
+
+[TestFixture]
+public class entity_mapping_spec : MappingSpecificationBase
+{
+  protected override IPersistenceConfigurer DefineDatabase()
+  {
+    return MsSqlConfiguration.MsSql2008
+    .ConnectionString("server=.\\SQLEXPRESS;"+ 
+      "database=NH3BeginnersGuide;"+ 
+      "integrated security=SSPI;");
+  }
+  protected override void DefineMappings(MappingConfiguration m)
+  {
+    m.FluentMappings.AddFromAssemblyOf<ProductMap>();
+  }
+  protected override void CreateSchema(Configuration cfg)
+  {
+    new SchemaExport(cfg).Execute(false, true, false);
+  }
+
+  [Then]
+  public void it_should_correctly_map_a_product()
+  {
+    new PersistenceSpecification<Product>(session)
+    .CheckProperty(x => x.Name, "Apple")
+    .CheckProperty(x => x.Description, "Some description")
+    .CheckProperty(x => x.UnitPrice, 1.50m)
+    .CheckProperty(x => x.ReorderLevel, 10)
+    .CheckProperty(x => x.Discontinued, true)
+    .VerifyTheMappings();
+  }
+}
+```
 
 ### Using SQLite in our tests
+
+```csharp
+[TestFixture]
+public class entity_mapping_spec_for_sqlite  : MappingSpecificationBase
+{
+  protected override IPersistenceConfigurer DefineDatabase()
+  {
+    return SQLiteConfiguration.Standard 
+      .InMemory() 
+      .ShowSql();
+  }
+
+  protected override void DefineMappings(MappingConfiguration m)
+  {
+    m.FluentMappings.AddFromAssemblyOf<ProductMap>();
+  }
+
+  [Then]
+  public void it_should_correctly_map_a_product()
+  {
+    new PersistenceSpecification<Product>(session)
+    .CheckProperty(x => x.Name, "Apple")
+    .CheckProperty(x => x.Description, "Some description")
+    .CheckProperty(x => x.UnitPrice, 1.50m)
+    .CheckProperty(x => x.ReorderLevel, 10)
+    .CheckProperty(x => x.Discontinued, true)
+    .VerifyTheMappings();
+  }
+
+}
+```
+
+#### Testing Queries
+
+Use Linq to NHibernate driver
+
+```csharp
+public interface IRepository<T>
+{
+  IQueryable<T> Query();
+  T Get(int id);
+  T Load(int id);
+  // possibly other members of ISession...
+}
+
+public class Repository<T> : IRepository<T>
+{
+  private readonly ISession session;
+
+  public Repository(ISession session)
+  {
+    this.session = session;
+  }
+  public IQueryable<T> Query() { return session.Query<T>(); }
+  public T Get(int id) { return session.Get<T>(id); }
+  public T Load(int id) { return session.Load<T>(id); }
+}
+
+```
+
+```csharp
+public class GetAllProductsToOrderQueryHandler
+{
+  private readonly IRepository<Product> repository;
+  public GetAllProductsToOrderQueryHandler( 
+    IRepository<Product> repository)
+  {
+    this.repository = repository;
+  }
+  public IEnumerable<Product> Execute()
+  {
+    return repository.Query() 
+      .Where(p => !p.Discontinued && p.UnitsOnStock < p.ReorderLevel) 
+      .OrderBy(p => p.Name) 
+      .ToArray();
+  }
+}
+```
+
+```csharp
+// Stub
+
+public class StubbedRepository : IRepository<Product>
+{
+  public IQueryable<Product> Query()
+  {
+    return new[]
+    {
+      new Product {Name = "Pineapple", UnitPrice = 1.55m,
+      ReorderLevel = 10, UnitsOnStock = 20,
+      Discontinued = false},
+      new Product {Name = "Hazelnut", UnitPrice = 0.25m,
+      ReorderLevel = 100, UnitsOnStock = 20,
+      Discontinued = true},
+      new Product {Name = "Orange", UnitPrice = 1.15m,
+      ReorderLevel = 20, UnitsOnStock = 10,
+      Discontinued = false},
+      new Product {Name = "Apple", UnitPrice = 1.15m,
+      ReorderLevel = 20, UnitsOnStock = 50,
+      Discontinued = false},
+    }
+    .AsQueryable();
+  }
+
+  public Product Get(int id)
+  {
+    throw new NotImplementedException();
+  }
+  public Product Load(int id)
+  {
+    throw new NotImplementedException();
+  }
+}  
+
+public class when_querying_products_to_reorder : SpecificationBase
+{
+  private IRepository<Product> repository;
+  private GetAllProductsToOrderQueryHandler sut;
+  private IEnumerable<Product> result;
+  protected override void Given()
+  {
+    repository = new StubbedRepository();
+    sut = new GetAllProductsToOrderQueryHandler(repository);
+  }
+  protected override void When()
+  {
+    result = sut.Execute();
+  }
+
+  [Then]
+  public void it_should_only_return_active_products()
+  {
+    Assert.That(result.Any(p => p.Discontinued), Is.False);
+  }
+
+  [Then]
+  public void it_should_only_return_products_to_reorder()
+  {
+    Assert.That(result.All(p => p.ReorderLevel > p.UnitsOnStock), 
+      Is.True);
+  }
+
+  [Then]
+  public void it_should_return_an_ordered_list()
+  {
+    Assert.That(result.First().Name, Is.EqualTo("Apple"));
+    Assert.That(result.Last().Name, Is.EqualTo("Orange"));
+  }
+
+}
+
+
+```
 ### Logging
+
+For "post-mortem" analysis
+
+Log4Net is one of the best known logging framework.
+
 ### Adding logging to our application
+
+#### Configuration
+
+1. Add a definition for the existence of of a log4net section
+
+```xml
+<?xml version="1.0"?>
+<configuration>
+  <configSections>
+    <section name="log4net" type="log4net.Config.Log4NetConfigurationSectionHandler, log4net"/>
+  </configSections>
+```
+
+2. Add log4net section
+
+```xml
+<log4net>
+  <appender name="ConsoleAppender" type="log4net.Appender.ConsoleAppender">
+    <layout type="log4net.Layout.PatternLayout">
+      <conversionPattern value="[%C.%M] %-5p %m%n"/>
+    </layout>
+  </appender>
+</log4net>
+```
+
+3. Instruct log4net which appender it should use.
+4. Define what level of debugging we want to enable
+
+```xml
+<root>
+  <appender-ref ref="ConsoleAppender"/>
+  <level value="DEBUG"/>
+</root>
+
+</configuration>
+```
+
+```csharp
+[assembly: log4net.Config.XmlConfigurator(Watch = true)]
+
+private static readonly ILog log =  
+  LogManager.GetLogger(typeof(Program));
+
+log.Debug("This is a Debug message.");
+log.Info("This is a Info message.");
+log.Warn("This is a Warn message.");
+log.Error("This is a Error message.");
+log.Fatal("This is a Fatal message.");
+
+```
+
 ### Enable logging in NHibernate
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <configSections>
+    <section name="log4net" type="log4net.Config.Log4NetConfigurationSectionHandler, log4net" />
+  </configSections>
+  <log4net debug="false">
+    <appender name="console" type="log4net.Appender.ConsoleAppender, log4net">
+      <layout type="log4net.Layout.PatternLayout,log4net">
+        <param name="ConversionPattern" value="%d [%t] %-5p %c - %m%n" />
+      </layout>
+    </appender>
+    <logger name="NHibernate">
+      <level value="WARN"/>
+    </logger>
+    <logger name="NHibernate.SQL">
+      <level value="ALL"/>
+    </logger>
+    <root>
+      <level value="DEBUG" />
+      <appender-ref ref="console" />
+    </root>
+  </log4net>
+</configuration>
+```
+
+```csharp
+protected override void BeforeAllTests()
+{
+  base.BeforeAllTests();
+  log4net.Config.XmlConfigurator.Configure();
+}
+```
+
 ### Monitoring and profiling
 ### Adding NHibernate Profiler support
 
