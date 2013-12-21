@@ -2241,10 +2241,61 @@ protected override void BeforeAllTests()
 ```
 
 ### Monitoring and profiling
+
+There are a few ways to monitor the application that uses NHibernate.
+
+* Alalysing log files
+* Using Sql Server Profiler
+* NHibernate Profiler
+
+#### NHibernate Profiler
+
+One of the best tools and a real-time visual debugger. http://www.nhprof.com
+
 ### Adding NHibernate Profiler support
 
+1. Download NHibernate Profiler and install it
+2. Request a trial license and receive it via email
+3. Create a new XML file and copy and paste the license key into it. Select the xml file when asked.
+4. Copy HibernatingRhinos.Profiler.Appender.dll and reference it in the application
+5. Put it before test code. HibernatingRhinos.Profiler.Appender.NHibernate.NHibernateProfiler.Initialize();
 
 ## 8. Configuration
+
+### Elements of the configuration
+
+#### Which dadabase do we want to use?
+
+```xml
+<property name="connection.provider">
+  NHibernate.Connection.DriverConnectionProvider
+</property>
+<property name="connection.driver_class">
+  NHibernate.Driver.SqlClientDriver
+</property>
+<property name="dialect">
+  NHibernate.Dialect.MsSql2008Dialect
+</property>
+<property name="connection.connection_string">
+  server=.\SQLEXPRESS;database=sample;integrated security=SSPI;
+</property>
+```
+
+The following elements can thus be omited:
+* NHibernate now implements its own proxy generator. No additonal external dependency is needed, and thus the confguraton does not need to defne the proxy factory factory element.
+* The DriverConnectionProvider class is the default connecton provider, and thus no explicit confguraton is needed.
+* Each dialect has associated a default driver, and again we can omit this declaraton.
+
+#### What byte code provider and proxy factory?
+
+### XML configuration
+### Configuring NHibernate using XML
+### Configuring NHibernate in code
+### Configuring NHibernate in code
+### Fluent configuration
+### Using Loquacious to configure NHibernate
+### Convention over configuration
+
 ## 9. Writing Queries
 ## 10. Validating the Data to Persist
 ## 11. Common Pitfalls - Things to avoid
