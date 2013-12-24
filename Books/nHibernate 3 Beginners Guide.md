@@ -2606,8 +2606,135 @@ cfg.DataBaseIntegration(db =>
 });
 
 ```
-### Convention over configuration
 
 ## 9. Writing Queries
+
+### How can we get to our data?
+
+* HQL: references the entities in the domain model and query the data
+* Criteria Query: string based query
+* QueryOver: type-safe variant of Criteria query
+* Linq Provider for NHibernate: Created on top of Criteria. The new one is built upon HQL
+* Native SQL
+
+### The LINQ to NHibernate provider
+
+#### Defining the root of the query
+
+```csharp
+var list = session.Query<Product>();
+```
+
+The query is not exeuted immediately, until we access and use the data. It's called *lazy evaluation*.
+
+```csharp
+var list = session.Query<Product>();
+foreach(var product in list)
+{
+  // do something with product
+}
+```
+
+It generateds the sql like this:
+
+```sql
+SELECT [list of all mapped felds] FROM PRODUCT
+```
+
+#### Limiting the number of records returned
+
+use take()
+
+```csharp
+var orders = session.Query<Order>().Take(200);
+```
+
+#### Filtering a set of records
+
+Use Where(Func<T, bool> predicate)
+
+```csharp
+var discontinuedProducts = session 
+  .Query<Product> 
+  .Where(p => p.Discontinued);
+```
+
+This filter function is sometimes called a *reduce function* or operation.
+
+#### Mapping a set of records
+
+Select(Func<TSource, TResult> mapper)
+
+```csharp
+public class NameID
+{
+  public int Id {get; set;}
+  public string Name {get; set;}
+}
+
+var discontinuedProducts = session 
+  .Query<Product> 
+  .Where(p => p.Discontinued) 
+  .Select(p => new NameID{Id = p.Id, Name = p.Name});
+```
+
+#### Sorting the result set
+
+```csharp
+var people = session.Query<Person>() 
+  .OrderBy(p => p.LastName);
+```
+
+Multiple sorts
+
+```csharp
+var people = session.Query<Person>() 
+  .OrderBy(p => p.LastName) 
+  .ThenBy(p => p.FirstName);
+
+var people = session.Query<Person>() 
+  .OrderByDescending(p => p.LastName) 
+  .ThenByDescending(p => p.FirstName);  
+```
+
+#### Grouping records
+
+```csharp
+var personsPerLetter = session.Query<Person>() 
+  .GroupBy(p => p.LastName.SubString(0,1)) 
+  .Select(g => new { Letter = g.Key, Count = g.Count() });
+```
+
+#### Forcing a Linq query to execute immediately
+
+End a query with a call to ToArray() or ToList()
+
+```csharp
+var products = session.Query<Product>() 
+  .Where(p => p.ReorderLevel > p.UnitsOnStock) 
+  .ToArray()
+```
+
+ToDictionary() enables to retrieve a list of entities from the database and store them in a collection.
+
+```csharp
+var personsPerLetter = session.Query<Person>() 
+  .GroupBy(p => p.LastName.SubString(0,1)) 
+  .Select(g => new { Letter = g.Key, Count = g.Count() }) 
+  .ToDictionary(x => x.Letter, x => x.Count);
+```
+
+### Creating a report using LINQ to NHibernate
+### Time for action Preparing the system
+### Time for action Creating the reports
+### Criteria queries
+### Time for action Using QueryOver to retrieve data
+### Hibernate Query Language
+### Lazy loading properties
+### Executing multiple queries in a batch
+### Eager loading versus lazy loading
+### Bulk data changes
+
+
 ## 10. Validating the Data to Persist
 ## 11. Common Pitfalls - Things to avoid
