@@ -964,8 +964,7 @@ Between the order and a line item, there is an associaton. We use the inverse at
 When we mark the collecton end as Inverse, then NHibernate will frst persist the entty that owns the collecton (the order), and will persist the enttes that are in the collecton aferwards (the line items), avoiding the additonal UPDATE statement.
 
 ```csharp
-HasMany(x =>x.LineItems) 
-  .Inverse();
+HasMany(x =>x.LineItems).Inverse();
 ```
 
 *Cascade*
@@ -2725,13 +2724,313 @@ var personsPerLetter = session.Query<Person>()
 ```
 
 ### Creating a report using LINQ to NHibernate
-### Time for action Preparing the system
-### Time for action Creating the reports
+
+1. Add the two fles nhibernate-configuration.xsd and nhibernate-mapping.xsd, located in the lib folder to this Schema soluton folder.
+
+2. Domain classes
+
+```csharp
+public class Star
+{
+  public virtual Guid Id { get; set; }
+  public virtual string Name { get; set; }
+  public virtual IList<Planet> Planets { get; set; }
+  public virtual StarTypes Class { get; set; }
+  public virtual SurfaceColor Color { get; set; }
+  public virtual double Mass { get; set; }
+}
+
+public class Planet
+{
+  public virtual Guid Id { get; set; }
+  public virtual string Name { get; set; }
+  public virtual bool IsHabitable { get; set; }
+  public virtual Star Sun { get; set; }
+}
+
+public enum SurfaceColor
+{
+  Blue, BueToWhite, WhiteToYellow, OrangeToRed, Red
+}
+
+public enum StarTypes
+{
+  O, B, A, F, G, K, M
+}
+```
+
+3. Mapping xml
+
+* <generator class="guid.comb"/>
+* <property name="Class" type="StarTypes"/>
+* <bag name="Planets" inverse="true" cascade="all-delete-orphan">
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="LinqToNHibernateSample" 
+ namespace="LinqToNHibernateSample">
+  <class name="Star">
+    <id name="Id">
+      <generator class="guid.comb"/>
+    </id>
+    <property name="Name"/>
+    <property name="Mass"/>
+    <property name="Class" type="StarTypes"/>
+    <property name="Color" type="SurfaceColor"/>
+    <bag name="Planets" inverse="true" cascade="all-delete-orphan">
+      <key column="StarId" />
+      <one-to-many class="Planet"/>
+    </bag>
+  </class>
+</hibernate-mapping>      
+```
+
+* <many-to-one name="Sun" class="Star" column="StarId"/>
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2" assembly="LinqToNHibernateSample" 
+  namespace="LinqToNHibernateSample">
+  <class name="Planet">
+    <id name="Id">
+      <generator class="guid.comb"/>
+    </id>
+    <property name="Name"/>
+    <property name="IsHabitable"/>
+    <many-to-one name="Sun" class="Star" column="StarId"/>
+  </class>
+</hibernate-mapping>
+
+```
+
+4. hibernate.config.xml
+
+* Set 'Copy to Output directory' to Copy Always
+* configuration.Configure() will search for a file called hibernate.config.xml
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<hibernate-configuration xmlns="urn:nhibernate-configuration-2.2">
+  <session-factory name="Sample">
+    <property name="connection.provider">NHibernate.Connection.DriverConnectionProvider</property>
+    <property name="connection.driver_class">NHibernate.Driver.SqlClientDriver</property>
+    <property name="dialect">NHibernate.Dialect.MsSql2008Dialect</property>
+    <property name="connection.connection_string">
+      server=.\SQLEXPRESS;database=LinqToNHibernateSample;integrated security=true
+    </property>
+    <property name="proxyfactory.factory_class">
+      NHibernate.ByteCode.Castle.ProxyFactoryFactory, NHibernate.ByteCode.Castle
+    </property>
+  </session-factory>
+</hibernate-configuration>    
+```
+
 ### Criteria queries
-### Time for action Using QueryOver to retrieve data
+
+#### Untyped Criterial queries
+
+```csharp
+var query = session.CreateCriteria<Product>();
+var products = session.CreateCriteria<Product>().List<Product>(); // the query is immediately executed
+
+var first10Products = session.CreateCriteria<Product>() 
+  .SetMaxResults(10) 
+  .List<Product>();
+```
+
+Restriction
+
+```csharp
+var discontinuedProducts = session.CreateCriteria<Product>() 
+  .Add(Restrictions.Eq("Discontinued", true)) 
+  .List<Product>();
+
+var discontinuedProducts = session.CreateCriteria<Product>() 
+  .Add(Restrictions.Eq("Discontinued", false)) 
+  .Add(Restrictions.GeProperty("ReorderLevel", "UnitsOnStock")) 
+  .List<Product>();    
+```
+
+With NHibernate 3, we can use lambda expression for property name
+
+```csharp
+Projections.Property("Name")
+Projections.Property<Product>(p => p.Name)
+```
+
+Sorting
+
+```csharp
+var sortedProducts = session.CreateCriteria<Product>() 
+  .AddOrder(Order.Asc("Name")) 
+  .List<Product>();
+```
+
+Grouping
+
+```csharp
+var productsGrouped = session.CreateCriteria<Product>() 
+  .SetProjection(Projections.ProjectionList() 
+    .Add(Projections.GroupProperty("Category")) 
+    .Add(Projections.RowCount(), "Num") 
+  ) 
+  .List();
+```
+
+#### Strongly-typed Criteria queries
+
+```csharp
+var query = session.QueryOver<Product>();
+var products = session.QueryOver<Product>().List();
+var first10Products = session.QueryOver<Product>() 
+  .Take(10) 
+  .List();
+
+var productsToReorder = session.QueryOver<Product>() 
+  .Where(p => p.Discontinued == false) 
+  .Where(p => p.ReorderLevel >= p.UnitsOnStock) 
+  .List();  
+
+var productsToReorder = session.QueryOver<Product>() 
+  .Where(p => p.Discontinued == false &&  
+    p.ReorderLevel >= p.UnitsOnStock) 
+  .List();
+
+var sortedProducts = session.QueryOver<Product>() 
+  .OrderBy(p => p.Name).Asc 
+  .ThenBy(p => p.UnitPrice).Desc 
+  .List();    
+
+var productsLookup = session.QueryOver<Product>() 
+  .Select(p => p.Id, p => p.Name) 
+  .TransformUsing(Transformers.AliasToBean<NameID>()) 
+  .List<NameID>();
+
+var productsGrouped = session.QueryOver<Product>() 
+  .Select(Projections.Group<Product>(p => p.Category), 
+    Projections.Avg<Product>(p => p.UnitPrice), 
+    Projections.Sum<Product>(p => p.UnitsOnStock), 
+    Projections.RowCount()) 
+  .List<object[]>();  
+```
+
 ### Hibernate Query Language
+
+```csharp
+var products = session.CreateQuery("from Product p").List<Product>();
+var first10Products = session.CreateQuery("from Product p") 
+  .SetFirstResult(10) 
+  .SetMaxResults(10) 
+  .List<Product>();
+
+var discontinuedProducts = session 
+  .CreateQuery("from Product p where p.Discontinued") 
+  .List<Product>();
+
+var hql = "from Product p" + 
+  " where p.Category = :category" + 
+  " and p.UnitPrice <= :unitPrice";
+var cheapFruits = session 
+  .CreateQuery(hql) 
+  .SetString("category", "Fruits") 
+  .SetDecimal("unitPrice", 1.0m) 
+  .List<Product>();
+
+var productsLookup = session 
+  .CreateQuery("select Id as Id, Name as Name from Product") 
+  .SetResultTransformer(Transformers.AliasToBean<NameID>()) 
+  .List<NameID>();
+
+var sortedProducts = session 
+  .CreateQuery("from Product p order by p.Name, p.UnitPrice desc") 
+  .List<Product>();
+
+var productsGrouped = session 
+  .CreateQuery("select p.Category as Category," +  
+  "       count(*) as Count," +  
+  "       avg(p.UnitPrice) as AveragePrice" +  
+  " from  Product p" +  
+  " group by p.Category") 
+  .List();
+
+var productsGrouped = session 
+  .CreateQuery("select p.Category as Category," +  
+    "       count(*) as Count," +  
+    "       avg(p.UnitPrice) as AveragePrice" +  
+    " from  Product p" +  
+    " group by p.Category") 
+  .SetResultTransformer(Transformers.AliasToEntityMap)
+  .List<IDictionary>()
+  .Select(r => new
+  {
+    Category = r["Category"],
+    Count = r["Count"],
+    AveragePrice = r["AveragePrice"],
+  });  
+```
+
 ### Lazy loading properties
+
+A new feature of NHibernate 3 is the ability to lazy load specific properties of an entity.
+
+```xml
+<property name="SomeProperty" lazy="true" … />
+```
+
+```csharp
+Map(x => x.SomeProperty).LazyLoad();
+
+public class Book
+{
+  public virtual int Id { get; set; }
+  public virtual string BookTitle { get; set; }
+  public virtual int YearOfPublication { get; set; }
+  public virtual string Review { get; set; }
+}
+
+public class BookMap : ClassMap<Book>
+{
+  public BookMap()
+  {
+    Id(x => x.Id);
+    Map(x => x.BookTitle);
+    Map(x => x.YearOfPublication);
+    Map(x => x.Review) 
+      .CustomType("StringClob") 
+      .LazyLoad();
+  }
+}
+```
+
 ### Executing multiple queries in a batch
+
+The LINQ to NHibernate provider defnes a ToFuture extension method just for this purpose. All queries that are terminated with ToFuture are sent to the database as a batch at the moment when the data of the frst query is accessed.
+
+```csharp
+using (var session = factory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  var categories = session.Query<Category>().ToFuture();
+  var query = session.Query<Product>() 
+    .Where(p => !p.Discontinued) 
+    .Where(p => p.Category.Name == "Fruits");
+  var products = query 
+    .ToFuture();
+ 
+  var count = query
+   .GroupBy(p => p.Discontinued) 
+    .Select(x => x.Count()) 
+    .ToFutureValue();
+  // get the results
+  var result = new Result
+  {
+    Categories = categories.ToArray(),
+    Products = products.ToArray(),
+    ProductCount = count.Value
+  };
+}
+```
+
 ### Eager loading versus lazy loading
 ### Bulk data changes
 
