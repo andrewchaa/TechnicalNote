@@ -3032,8 +3032,84 @@ using (var tx = session.BeginTransaction())
 ```
 
 ### Eager loading versus lazy loading
+
+Person
+
+* Id
+* Firstname
+* Lastname
+
+Hobby
+
+* Id
+* Name
+
+Person ->> Hobby
+Hobby -> Person
+
+```csharp
+var listOfPersons = session.Query<Person>();
+foreach (var person in listOfPersons)
+{
+  Console.WriteLine("{0} {1}", person.LastName, person.FirstName);
+  foreach (var hobby in person.Hobbies)
+  {
+    Console.WriteLine("  {0}", hobby.Name);
+  }
+}
+```
+
+Then the sql becomes like
+
+```sql
+SELECT ... FROM "Person" person0_
+SELECT ... FROM "Hobby" hobbies0_ WHERE hobbies0_.Person_id = ...
+SELECT ... FROM "Hobby" hobbies0_ WHERE hobbies0_.Person_id = ...
+SELECT ... FROM "Hobby" hobbies0_ WHERE hobbies0_.Person_id = ...
+```
+
+This is a typical select (n+1) problem. NHibernate frst loads the list of all person and then when we access the hobbies of each person, it lazy loads its respectve list of hobbies. 
+
+We can instruct NHibernate to eagerly load all hobbies together with the person entities.
+
+* Linq-to-nhibernate: Fetch
+* Critria: LeftOuterJoin
+* hql: left join fetch
+
+NHibernate uses an outer join to load the person and hobbies data in one go.
+
+```csharp
+var persons = session.Query<Person>() 
+  .Fetch(p => p.Hobbies);
+
+var persons = session.CreateCriteria<Person>("p") 
+  .CreateCriteria("p.Hobbies", JoinType.LeftOuterJoin) 
+  .List<Person>();
+
+var hql = "select p from Person as p left join fetch p.Hobbies as h";
+var listOfPersons = session.CreateQuery(hql) 
+  .List<Person>();
+```
+
 ### Bulk data changes
 
+Use hql
+
+```csharp
+var hql = "update Product p set p.UnitPrice = 1.1 * p.UnitPrice";
+session.CreateQuery(hql).ExecuteUpdate();
+
+var hql = "delete Product p where p.Discontinued=true";
+session.CreateQuery(hql).ExecuteUpdate();
+
+var hql = "delete Product p where p.Discontinued=true";
+session.CreateQuery(hql).ExecuteUpdate();
+
+var hql = "insert into Product(Id, Name, Category, UnitPrice) " +  
+  "select t.Id, t.Name, t.Category, t.UnitPrice " +  
+  "from ProductTemp t";
+session.CreateQuery(hql).ExecuteUpdate();
+```
 
 ## 10. Validating the Data to Persist
 ## 11. Common Pitfalls - Things to avoid
