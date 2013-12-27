@@ -3112,4 +3112,81 @@ session.CreateQuery(hql).ExecuteUpdate();
 ```
 
 ## 10. Validating the Data to Persist
+
+### What is validation and why is it so important?
+
+Make sure the data entered into the system is valid
+
+### Who owns the database?
+
+When our application owns the database, it is much more flexible to change.
+A lot of problems that we faced had to do with the fact that our applicaton did not exclusively own the database.
+
+### Why, what, and where do we validate?
+
+Validate all data that is entered.
+
+#### Where to validate
+
+* At the presentaton layer
+* On the server, inside our domain model
+* At the database level
+
+On the presentation layer,
+
+* provides a value for a mandatory feld
+* enters data of the right type (a number in a numeric feld, a valid date in a date feld, and so on)
+* does not enter strings longer than permited
+* enters numbers or dates in the expected range
+
+In the domain model
+
+* All of the above
+* validate interaction between entities. ex) only accept an order of a customer over a certain threshold value if the customer has no unpaid invoices
+
+In the database
+
+* add a constraints that which serve as a last resort. ex) foreign key, unique constraint, or even check constraint
+
+### Validating single properties
+
+There is a contributio project, NHibernate.Validator
+
+#### Configuring the validator
+
+```csharp
+var nhvConfig = new NHibernate.Validator.Cfg.Loquacious.FluentConfiguration();
+
+nhvConfig 
+  .SetDefaultValidatorMode(ValidatorMode.UseAttribute) 
+  .Register(typeof (Product).Assembly.ValidationDefinitions()) 
+  .IntegrateWithNHibernate 
+  .ApplyingDDLConstraints() 
+  .And 
+  .RegisteringListeners();
+
+var validatorEngine = new ValidatorEngine();
+validatorEngine.Configure(nhvConfig);
+
+nhibernateConfig.Initialize(validatorEngine);
+```
+
+#### Defining validation rules
+
+```csharp
+[NotNull(Message = "Product must have a valid name"]
+public string Name { get; set; }
+
+[NotNull(Message = "Product must have a valid name"]
+[Length(Min = 2, Max = 50,  
+  Message = "Name of product must be between 1 and 50 char"]
+public string Name { get; set; }
+```
+
+### Time for action Using property validation
+### Validating complex business rules
+### Time for action Validating user input
+### What to do if we don't own the database?
+
+
 ## 11. Common Pitfalls - Things to avoid
