@@ -19,3 +19,10 @@ private IEnumerable<Document> GetFiles(string baseFolder, DirectoryInfo director
 }
 
 ```
+
+## Iterators
+
+### yield
+
+* [Interesting use of the C# yield keyword in Nerd Dinner tutorial](http://stackoverflow.com/questions/1971053/interesting-use-of-the-c-sharp-yield-keyword-in-nerd-dinner-tutorial)
+
