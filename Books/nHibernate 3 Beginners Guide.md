@@ -3183,10 +3183,70 @@ public string Name { get; set; }
 public string Name { get; set; }
 ```
 
-### Time for action Using property validation
 ### Validating complex business rules
-### Time for action Validating user input
-### What to do if we don't own the database?
 
+#### Enforcing always valid entities
+
+Use parameterised constructor
+
+```csharp
+public class Name
+{
+  public string LastName { get; private set; }
+  public string MiddleName { get; private set; }
+  public string FirstName { get; private set; }
+
+  public Name(string lastName, string middleName, string firstName)
+  {
+    if(string.IsNullOrWhiteSpace(lastName) ||
+      lastName.Length < 2 || lastName.Length > 50)
+      throw new ArgumentException("Invalid last name. " +
+      "Must be between 2 and 50 charaters long.");
+    if(string.IsNullOrWhiteSpace(firstName) ||
+      firstName.Length < 2 || firstName.Length > 50)
+      throw new ArgumentException("Invalid first name." +
+      "Must be between 2 and 50 charaters long.");
+    LastName = lastName;
+    MiddleName = middleName;
+    FirstName = firstName;
+  }
+}
+```
+
+bank account example
+
+```csharp
+public class Account
+{
+  public decimal Balance { get; private set; }
+  public void Credit(decimal amount)
+  {
+    if(Balance - amount < 0.0m)
+      throw new ArgumentException("Not enough funds.");
+    Balance -= amount;
+  }
+}
+```
+
+Use validation classes
+
+OrderApprovalValidator checks
+
+1. Verify that the logged in employee is indeed a manager.
+2. Verify that the customer who placed the order has no pending invoices.
+
+```csharp
+public class OrderApprovalValidator
+{
+  public IEnumerable<string> GetBrokenRules(Order entity)
+  {
+    if(user_is_not_manager)        
+      yield return "you are not a manager.";
+    if (customer_has_pending_invoices)
+      yield return "customer has pending invoices";
+  }
+  // more code, omitted for clarity...
+}
+```
 
 ## 11. Common Pitfalls - Things to avoid
