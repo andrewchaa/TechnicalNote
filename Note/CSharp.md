@@ -20,6 +20,22 @@ private IEnumerable<Document> GetFiles(string baseFolder, DirectoryInfo director
 
 ```
 
+### Get Filename from full path
+
+Use Path.GetFileName()
+
+```csharp
+public Thumbnail(string fullname, byte[] content, string contentType, bool isDirectory)
+{
+    Fullname = fullname;
+    Name = Path.GetFileName(fullname); 
+    Content = content;
+    ContentType = contentType;
+    IsDirectory = isDirectory;
+}
+```
+
+
 ## Iterators
 
 ### yield
