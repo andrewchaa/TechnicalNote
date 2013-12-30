@@ -31,3 +31,19 @@ self.getImage = function() {
     });
 };
 ```
+
+## Conditionals
+
+### ko if: 
+
+```html
+<ul class="breadcrumb" id="breaddcrumb" data-bind="foreach: breadcrumbs">
+	<li>
+	    <!-- ko if: $index() == 0 -->&nbsp;&nbsp;<i class="icon-home"></i><!-- /ko -->
+
+	    <a href="#" data-bind="text: Name, click: $parent.clickBreadcrumb"></a>
+	    <span class="divider"><i class="icon-angle-right"></i></span>
+	</li>
+</ul>
+
+```
