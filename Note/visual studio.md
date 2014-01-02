@@ -9,8 +9,10 @@ To stop and start a windows service on build
 Pre-build event
 
 ```shell
-net stop Huddle.Identity.EventConsumer
-Exit /b 0
+if $(ConfigurationName) == Debug (
+	net stop Huddle.Identity.EventConsumer
+	Exit /b 0
+)
 ```
 
 Sometimes, the service hasn't started, so put Exit /b 0
@@ -18,5 +20,7 @@ Sometimes, the service hasn't started, so put Exit /b 0
 Post-build event
 
 ```shell
-net start Huddle.Identity.EventConsumer
+if $(ConfigurationName) == Debug (
+	net start Huddle.Identity.EventConsumer
+)
 ```
