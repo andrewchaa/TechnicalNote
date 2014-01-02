@@ -3250,3 +3250,245 @@ public class OrderApprovalValidator
 ```
 
 ## 11. Common Pitfalls - Things to avoid
+
+### Requesting the obvious
+
+Do not define unnecessary attributes in the mapping
+
+an example of a verbose XML mapping
+```xml
+<property name="OrderDate" lazy="false" access="Property" 
+          type="DateTime" insert="true" update="true"  
+          unique="false">
+  <column name="OrderDate" not-null="true" sql-type="DateTime" />
+</property>
+```
+
+* lazy: By default, all propertes mapped with the <property> tag are not lazy loaded. Thus, false is the default value.
+* access: NHibernate by default uses property seters and geters to access the data of the enttes. Thus, no need to declare this explicitly in this example.
+* type: NHibernate uses refecton to determine the type of a mapped property. In most cases this is the expected behavior, only in rare cases we need to "help" NHibernate to fnd the right property type. Samples are when using, for example, CLOB or BLOB type felds in conjuncton with an Oracle database.
+* insert: By default, the value of the mapped property is used when insertng a new record into the database. In other words the default value for insert is true.
+* update: Similar to insert discussed above, the value of the mapped property is used when updatng an existng record in the database. Consequently the default value of update is true.
+* unique: By default, NHibernate assumes that the values of a given database column must not be unique. Thus, the default value of unique is false.
+* column name: By default, NHibernate uses the same name as the property when mapping to the underlying database table feld. Thus, this defniton is only needed when the database feld name difers from the property name of the mapped entty.
+* column sql-type: In most cases NHibernate is able to correctly map the .NET data types to the matching types used by the underlying database. The mappings are defned in the dialect strategies that NHibernate uses. We select the correct strategy when confguring NHibernate.
+
+## Wrong mapping for read-only access
+
+DTO for read only view
+
+```csharp
+
+// inefficient and too verbose
+public class Top10CustomersMap : ClassMap<Top10Customers>
+{
+  public Top10CustomersMap()
+  {
+    Table("Top10CustomersOfMonth");
+    Id(x => x.CustomerId).GeneratedBy.GuidComb();
+    Map(x => x.CustomerName).Length(50).Not.Nullable();
+    Map(x => x.NbrOfOrders).Not.Nullable();
+    Map(x => x.Total).Not.Nullable();
+    Map(x => x.Month).Not.Nullable();
+    Map(x => x.Year).Not.Nullable();
+  }
+}
+
+// Correct mapping
+public class Top10CustomersMap2 : ClassMap<Top10Customers>
+{
+  public Top10CustomersMap2()
+  {
+    Table("Top10CustomersOfMonth");
+    ReadOnly();
+    Not.LazyLoad();
+    SchemaAction.None();
+    Id(x => x.CustomerId);
+    Map(x => x.CustomerName);
+    Map(x => x.NbrOfOrders);
+    Map(x => x.Total);
+    Map(x => x.Month);
+    Map(x => x.Year);
+  }
+}
+```
+
+By avoiding
+
+## Blindly relying on NHibernate
+
+Beware of N+1 query
+
+## Using implicit transactions
+
+Always use explicit transaction, even with read
+
+```csharp
+using (var session = factory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  blog = session.Load<Blog>(1001);
+  tx.Commit();
+}
+```
+
+## Using database-generated IDs
+
+HiLo generator or GuidComb generator is recommended
+
+GuidComb: generate GUIDS optimised for indexing in the database.
+
+## Using LINQ to NHibernate the wrong way
+
+```csharp
+// This does not cause the system to execute the query
+var products = session.Query<Product>().Where(p => p.Discontinued);
+
+// The moment we start to iterate over the query result, the query is effectively executed on the source.
+foreach(var product in products)
+{
+  // do something with product
+}
+
+// This raises an exception
+using (var session = factory.OpenSession())
+using(var tx = session.BeginTransaction())
+{
+  var products = session.Query<Product>()
+    .Where(p => p.Discontinued);
+  foreach (var productGroup in products.GroupBy( 
+    p => p.Category.Name))
+  {
+     Console.WriteLine("Category: {0}", productGroup.Key);
+     foreach (var product in productGroup)
+     {
+        Console.WriteLine("  {0} - {1}", 
+          product.Name, product.UnitPrice);
+      }
+  }
+}     
+
+// Right way to do
+var productGroups = session.Query<Product>()
+  .Where(p => p.Discontinued)
+  .AsEnumerable()
+  .GroupBy(p => p.Category.Name);
+```
+
+## The trouble with lazy loading
+
+#### The select [n + 1] problem
+
+Blog
+
+* Author
+* Id
+* Name
+
+Post
+
+* Id
+* Title
+
+Blog -- Posts --> Post
+Post -- Blog --> Blog
+
+```csharp
+using (var session = factory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  blog = session.Load<Blog>(1001);
+  tx.Commit();
+}
+```
+
+Only the Blog tabke is queried and the Post table is not accessed so far.
+
+```csharp
+var nbrOfPosts = blog.Posts.Count;
+```
+
+Now, NHibernate creates an additional query on the database to retrieve all posts associated with the blog.
+
+```csharp
+using (var session = factory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  var blogs = session.Query<Blog>();
+  foreach (var blog in blogs)
+  {
+    Console.WriteLine("Blog {0} by {1}", blog.Name, blog.Author);
+    foreach (var post in blog.Posts)
+      Console.WriteLine("  {0}", post.Title);
+    }
+  }
+  tx.Commit();
+}
+```
+
+```sql
+SELECT ... FROM [Blog] blog0_
+SELECT ... FROM [Post] post0_ WHERE posts0_Blog_id = 1001
+SELECT ... FROM [Post] post0_ WHERE posts0_Blog_id = 1002
+SELECT ... FROM [Post] post0_ WHERE posts0_Blog_id = 1003
+...
+
+Mathematically, if we have n blogs, then NHibernate creates (n+1) queries in total
+
+To fix this, ask NHibernate to eagerly load the posts when loading the blogs
+
+```csharp
+using (var session = factory.OpenSession())
+using (var tx = session.BeginTransaction())
+{
+  var blogs = session.Query<Blog>() 
+    .Fetch(b => b.Posts);
+  foreach (var blog in blogs)
+  {
+    Console.WriteLine("Blog {0} by {1}", blog.Name, blog.Author);
+    foreach (var post in blog.Posts)
+    {
+      Console.WriteLine("  {0}", post.Title);
+    }
+  }
+  tx.Commit();
+}
+```
+
+Then NHibernate uses left join to load the posts.
+
+```sql
+SELECT blog0_Id as Id0_0_, ...
+  FROM [Blog] blog0
+       LEFT OUTER JOIN [Post] posts1_ 
+         ON blog0_.Id = posts1_Blog_id
+```
+### Accessing lazy loaded parts after the session is closed
+
+To avoid such situations,
+
+* Close the session at the last possible moment, afer all data has been loaded and consumed. In a web applicaton this can be achieved if we use the session per request patern, open the session when the request starts, and close the session when the request ends.
+* Use the hints shown in the preceding secton to cause NHibernate to eagerly load data that normally would be lazy loaded.
+* Use the NHibernateUtil class to force the initalizaton of a lazy loaded collecton or property. Use this code in the case of our blog sample: NHibernateUtil.Initialize(blog.Posts);.
+* Use database views to load your data as discussed earlier in this chapter and avoid using lazy load at all when mapping those views.
+
+### Did I just load the whole database?
+
+```csharp
+LineItem.Order.Customer.CustomerName
+```
+
+It looks harmless but can cause a lot of trouble in the database.
+It's important to limit the number of dots in an expression.
+
+## Using one model for read and write operations
+
+If our domain is very complex, using one model for read and write operation quickly reaches its limits.
+
+### CQRS
+
+## Phantom updates
+
+Sometimes, NHibernate thinks an entity that we loaded from the database and di not explicitly change is dirty.
+
+## Using NHibernate to persist any type of data
