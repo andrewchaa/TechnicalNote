@@ -11,6 +11,7 @@
 * Description: Calls the stored procedure PulseMessage, that inserts a 'alive' message in the EventQueue
 * Owner: Domain/Job
 * Every 2 minute
+
 Steps
 * Name: Call PulseMessage
 * Database: Measure

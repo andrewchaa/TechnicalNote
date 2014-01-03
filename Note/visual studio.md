@@ -10,7 +10,7 @@ Pre-build event
 
 ```shell
 if $(ConfigurationName) == Debug (
-	net stop Huddle.Identity.EventConsumer
+	net stop Identity.EventConsumer
 	Exit /b 0
 )
 ```
@@ -21,6 +21,6 @@ Post-build event
 
 ```shell
 if $(ConfigurationName) == Debug (
-	net start Huddle.Identity.EventConsumer
+	net start Identity.EventConsumer
 )
 ```
