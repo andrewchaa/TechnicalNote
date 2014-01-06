@@ -1,5 +1,18 @@
 # CSharp
 
+## Linq
+
+#### Difference between Expression<Func<T, bool>> and Func<T, bool>
+
+* [Difference](http://stackoverflow.com/questions/2664841/difference-between-expressionfunc-and-func)
+* [Conversion](http://stackoverflow.com/questions/1217749/how-to-convert-an-expressionfunct-bool-to-a-predicatet)
+
+```csharp
+Func<T, bool> func = expression.Compile();
+Predicate<T> pred = t => func(t);
+Predicate<T> pred = func.Invoke;
+```
+
 ## File and directory handling
 
 ```csharp
