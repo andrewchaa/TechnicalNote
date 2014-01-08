@@ -25,7 +25,7 @@ public FileContentResult Get(string path)
 
 ### Get ContentType (MimeType) from file extension
 
-[MimeMapping.GetMimeMapping] (http://msdn.microsoft.com/en-us/library/system.web.mimemapping.getmimemapping)
+[MimeMapping.GetMimeMapping](http://msdn.microsoft.com/en-us/library/system.web.mimemapping.getmimemapping)
 
 ```csharp
 var thumbnail = new Thumbnail
