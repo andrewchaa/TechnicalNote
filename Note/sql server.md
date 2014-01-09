@@ -48,3 +48,7 @@ ALTER QUEUE [dbo].[Identity_EventStreamQueue] WITH STATUS = ON , RETENTION = OFF
 ```sql
 RECEIVE CONVERT(VARCHAR(MAX), message_body) AS message, message_type_name, conversation_handle FROM Identity_EventStreamQueue
 ```
+
+## Sql Express
+
+To connect a local sql express, the name should be (local)\sqlexpress
