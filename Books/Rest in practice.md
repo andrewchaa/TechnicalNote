@@ -82,9 +82,47 @@ Using content negotiation, consumers can negotiate for specific representation f
 
 ### The Art of Communication
 
+#### HTTP verbs or actions
+
+* GET
+* POST
+* DELETE
+* OPTIONS
+* HEAD
+* TRACE
+* CONNECT
+* PATCH
+
+#### HTTP response codes
+
+* 200 OK
+* 201 Created
+* 404 Not Found
+...
+
+Resources, identifiers, and actions are all we need to interact with resources hosted on the Web
+
+*agent*
+
+GET /Resource1 HTTP/1.1
+Accept: applicatio/xml
+...
+
+--> 
+
+*Resource*
+
+http://example.org/Resource1
+
+HTTP/1.1 200 OK
+...
+representation of Resource1
 
 
 ## From the Web Architecture to the REST Architectural Style
+
+
+
 ## The Web As an Application Platform
 ## Web Friendliness and the Richardson Maturity Model
 ## GET on Board
