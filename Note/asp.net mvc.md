@@ -36,3 +36,8 @@ var thumbnail = new Thumbnail
     };
 
 ```
+
+### Web Api controller construction with parameters
+
+http://www.strathweb.com/2012/05/using-ninject-with-the-latest-asp-net-web-api-source/
+
