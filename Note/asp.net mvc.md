@@ -36,3 +36,11 @@ var thumbnail = new Thumbnail
     };
 
 ```
+
+### Web Api controller construction with parameters
+
+http://www.strathweb.com/2012/05/using-ninject-with-the-latest-asp-net-web-api-source/
+
+## Model
+
+Use view model if you only need a subset of nhibernate model class. Sometimes, a model has child entity with one-to-many mappings and is not suitable for representation
