@@ -4,6 +4,14 @@
 
 ### attribute
 
+#### link
+
+```html
+<a data-bind="text: OrderNo, attr: {href: OrderNo, title: 'Order No.'}"></a>
+``` 
+
+#### Inline image
+
 ```html
 <ul class="thumbnails" data-bind="foreach: images">
   <li>
@@ -20,6 +28,12 @@ cf) [Embedding base64 image](http://stackoverflow.com/questions/1207190/embeddin
 <img data-bind="attr: { src: 'data:' + ContentType + ';base64,' + FileContents }" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCABLAGQD...">
 ```
 
+#### data-xxx attribute
+
+```html
+<li><a data-bind="attr: { href: previousPage, 'data-page': previousPage }">Previous</a></li>
+```
+
 ### Observable Array
 
 Add an element
@@ -34,7 +48,7 @@ self.getImage = function() {
 
 ## Conditionals
 
-### ko if: 
+### ko if, ifnot
 
 ```html
 <ul class="breadcrumb" id="breaddcrumb" data-bind="foreach: breadcrumbs">
@@ -45,5 +59,12 @@ self.getImage = function() {
 	    <span class="divider"><i class="icon-angle-right"></i></span>
 	</li>
 </ul>
+
+<!-- ko if: IsPaid -->
+<span class="label label-success">Yes</span>
+<!-- /ko -->
+<!-- ko ifnot: IsPaid -->
+<span class="label label-warning">No</span>
+<!-- /ko -->
 
 ```

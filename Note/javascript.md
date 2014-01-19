@@ -28,3 +28,13 @@ Position the image centre
 </style>
 
 ```
+
+Spinner
+
+```javascript
+<img id="spinner" class="ajax-loader" src="~/Images/spinner.gif" />
+<script type="text/javascript">
+    var $loading = $('#spinner').hide();
+    $(document).ajaxStart(function () { $loading.show(); }).ajaxStop(function () { $loading.hide(); });
+</script>
+```
