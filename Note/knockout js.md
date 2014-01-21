@@ -68,3 +68,18 @@ self.getImage = function() {
 <!-- /ko -->
 
 ```
+
+## javascrip
+
+### looping through an array
+
+```javascript
+$.get(api, function (data) {
+    $.each(data, function (i, val) {
+        self.images.push(val);
+    });
+
+    self.images(data);
+});
+
+```

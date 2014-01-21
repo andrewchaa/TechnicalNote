@@ -29,3 +29,20 @@ Added ajax spinner
     $(document).ajaxStart(function () { $loading.show(); }).ajaxStop(function () { $loading.hide(); });
 </script>
 ```
+
+## Web Drive
+
+### Display folder / image one by one
+
+looping through images array
+
+```javascript
+$.get(api, function (data) {
+    $.each(data, function (i, val) {
+        self.images.push(val);
+    });
+
+    self.images(data);
+});
+
+```
