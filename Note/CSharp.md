@@ -140,3 +140,28 @@ Contract.Requires(sessionManager != null); was greyed out, as ReSharper didn't u
 * [Code contract from MSDN](http://msdn.microsoft.com/en-us/library/dd264808(v=vs.110).aspx)
 
 So in order to convert Code Contract into run time checks, you have to run ccrewrite.exe and it [should be installed on the build server](http://stackoverflow.com/questions/3569108/microsoft-code-contracts-and-ci-build-server?rq=1) 
+
+## String
+
+### Convert a string into base64 string
+
+Convert it to byte with UTF8 Encoding and then convert it to base64 string
+* [http://stackoverflow.com/questions/11743160/how-do-i-encode-and-decode-a-base64-string](http://stackoverflow.com/questions/11743160/how-do-i-encode-and-decode-a-base64-string)
+* [http://stackoverflow.com/questions/1886686/c-sharp-byte-to-url-friendly-string](http://stackoverflow.com/questions/1886686/c-sharp-byte-to-url-friendly-string)
+
+```csharp
+public string FullNameBase64 
+{ 
+    get { return Convert.ToBase64String(Encoding.UTF8.GetBytes(FullName)); } 
+}
+```
+
+However, you need to generate URL safe encoding. This can be done by HttpServerUtility
+
+```csharp
+public string FullNameBase64 
+{ 
+    get { return HttpServerUtility.UrlTokenEncode(Encoding.UTF8.GetBytes(FullName)); } 
+}
+
+```
