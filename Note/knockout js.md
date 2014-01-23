@@ -69,6 +69,13 @@ self.getImage = function() {
 
 ```
 
+### Conditional css and style
+
+```html
+<tr data-bind="style: { 'background-color': IsToday == true ? 'FloralWhite' : '' }">
+
+```
+
 ## javascrip
 
 ### looping through an array
