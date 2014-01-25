@@ -51,4 +51,11 @@ Thu. 23/1/2014
 
 ## 	Installing Ubuntu on virtual box
 
-You have [set the type to 64 ubuntu](http://askubuntu.com/questions/308937/cannot-install-ubuntu-in-virtualbox-due-to-this-kernel-requires-an-x86-64-cpu) to use 64 version.
+You have [set the type to 64 ubuntu](http://askubuntu.com/questions/308937/cannot-install-ubuntu-in-virtualbox-due-to-this-kernel-requires-an-x86-64-cpu) to use 64 version.```
+
+Sat. 25/1/2014
+
+## Installing Nancy-fx
+
+https://github.com/NancyFx/Nancy/wiki/Introduction
+http://visualstudiogallery.msdn.microsoft.com/f1e29f61-4dff-4b1e-a14b-6bd0d307611a
