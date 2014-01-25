@@ -46,3 +46,10 @@ $.get(api, function (data) {
 });
 
 ```
+
+Sat. 25/1/2014
+
+## Installing Nancy-fx
+
+https://github.com/NancyFx/Nancy/wiki/Introduction
+http://visualstudiogallery.msdn.microsoft.com/f1e29f61-4dff-4b1e-a14b-6bd0d307611a
